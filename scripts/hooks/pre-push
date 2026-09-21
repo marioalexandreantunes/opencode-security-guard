@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# pre-push hook template (committed). Installed opt-in via
+# `scripts/install-hooks.sh` — never force-installed, so a clone without the
+# installer keeps its git configuration untouched.
+#
+# Runs the fast quality gates before a push leaves the machine; any failing
+# gate aborts the push. The CI workflow remains the blocking gate for accepted
+# changes — this hook is supplementary (it can be skipped with --no-verify).
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+echo "pre-push: running fast gates (scripts/quality-gate.sh)"
+if ! bash "$REPO_ROOT/scripts/quality-gate.sh"; then
+    echo "pre-push: REJECTED — a quality gate failed; push aborted" >&2
+    exit 1
+fi
+echo "pre-push: gates passed"
