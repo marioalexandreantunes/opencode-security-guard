@@ -1,0 +1,37 @@
+# Adversarial corpus: must-catch rows (add-adversarial-corpus).
+#
+# Format: <rule-name><TAB><synthetic value>. One row per provider format.
+# The harness asserts each value is redacted with the named rule and that the
+# stored payload equals the value. Values are generated at test runtime because
+# GitHub Push Protection blocks pushes containing credential patterns, even
+# synthetic test data. This also avoids normalizing key-shaped data in source.
+# Blank lines and lines starting with '#' are ignored.
+#
+# Harness self-test row (existing rule, proves the reader/asserter wiring):
+gitlab-pat	<fixture:gitlab-pat>
+
+# Batch 2: AWS STS, GitHub fine-grained PAT, Slack app, Stripe restricted
+aws-sts-key	<fixture:aws-sts-key>
+github-fine-grained-pat	<fixture:github-fine-grained-pat>
+slack-app-token	<fixture:slack-app-token>
+stripe-restricted-key	<fixture:stripe-restricted-key>
+
+# Batch 3: Groq, xAI, Replicate, Perplexity
+groq-key	<fixture:groq-key>
+xai-key	<fixture:xai-key>
+replicate-token	<fixture:replicate-token>
+perplexity-key	<fixture:perplexity-key>
+
+# Batch 4: Grafana, Docker, Vault, Tailscale
+grafana-service-account-token	<fixture:grafana-service-account-token>
+docker-pat	<fixture:docker-pat>
+vault-token	<fixture:vault-token>
+tailscale-key	<fixture:tailscale-key>
+
+# Batch 5: Pulumi, Render, Doppler, Resend, Brevo, Linear
+pulumi-token	<fixture:pulumi-token>
+render-key	<fixture:render-key>
+doppler-token	<fixture:doppler-token>
+resend-key	<fixture:resend-key>
+brevo-key	<fixture:brevo-key>
+linear-key	<fixture:linear-key>

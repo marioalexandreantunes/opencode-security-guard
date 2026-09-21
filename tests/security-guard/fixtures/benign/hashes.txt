@@ -1,0 +1,13 @@
+# Benign corpus — hashes and digests (lowercase hex, no uppercase).
+# Every line is an expected negative: the scanner must leave it unchanged.
+# (Uppercase-free hex fails the entropy-blob mixed-case validator.)
+
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+9f86d081884c7d659a2feaa44c55c382e8b3041c3d0e32f7bd2b9a3e7a5c8f1e
+a665a45920422f9d8e4f1c9c5b4c1f6a1a2b3c4d5e6f708192a3b4c5d6e7f8090
+5d41402abc4b2a76b9719d911017c592
+0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+git rev-parse HEAD
+sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+md5: 5d41402abc4b2a76b9719d911017c592
+build 2a3b4c5d6e7f8091a2b3c4d5e6f70819

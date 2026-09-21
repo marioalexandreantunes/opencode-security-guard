@@ -1,0 +1,19 @@
+# Benign corpus — file paths, URLs and shell-adjacent strings.
+# Every line is an expected negative: the scanner must leave it unchanged.
+
+/etc/ssl/certs/x.pem
+./cfg/keys.json
+/var/log/nginx/access.log
+~/projects/guard/src/config.ts
+/usr/local/lib/node_modules/opencode/bin/opencode
+C:\Users\dev\AppData\Local\opencode\config.json
+https://example.com/path/to/file
+https://example.com/api/v1/users?id=42
+https://registry.npmjs.org/opencode-security-guard
+file:///tmp/archive.tar.gz
+git@github.com:org/repo.git
+ssh://git@example.com:2222/org/repo
+redis://localhost:6379/0
+node_modules/.cache/opencode/telemetry.json
+./dist/security-guard.js
+../vendor/third-party/LICENSE

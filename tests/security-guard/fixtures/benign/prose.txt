@@ -1,0 +1,15 @@
+# Benign corpus — natural-language prose mentioning security terms.
+# Every line is an expected negative: the scanner must leave it unchanged.
+
+Please reset your password before the next release.
+The token expired and a new one was issued by the server.
+Do not share credentials over plain HTTP.
+This API key is rotated every quarter by the ops team.
+The secret must never be logged.
+Authentication failed because the passwd entry is stale.
+The client secret is stored in the vault, not in the repo.
+Remember to revoke access tokens when an engineer leaves.
+The private key file was moved to the hardware module.
+We redact secrets before writing logs (see the threat model).
+Our pwd policy requires twelve characters minimum.
+The authorization header carries a bearer token.

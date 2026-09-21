@@ -1,0 +1,51 @@
+# Benign corpus — lookalike negatives for exact-length provider rules.
+# Every line is an explicit expected negative: the scanner must leave it
+# unchanged (conservative exact-length policy, scanner-property-tests change).
+# Synthetic values only; no real credentials. Over-length values that are
+# rescued by entropy-blob (aws-secret-key / google-api-key / npm-token / sendgrid-key /
+# azure-storage-key at len_max+1) are documented in evidence.md, not listed here.
+
+glpat-AbCdEf
+glpat-0123456789AbCdEfGhIjK
+SK0123456789abcdef0123456789ab
+SK0123456789abcdef0123456789abc
+key-0123456789abcdef0123456789ab
+key-0123456789abcdef0123456789abc
+npm_AbCdEfGhIj
+dop_v1_0123456789abcdef
+dop_v1_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0
+shpat_0123456789abcdef
+<fixture:shopify-overlong>
+pypi-AbCdEfGhIj
+1234567890:AbCdEfGhIj
+1234567890:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789ab
+AKIA0123456789ABC
+AKIA0123456789ABCDEFG
+SG.AbCdEfGhIj.WxYz
+M0123456789.abcdef.0123456789abcdefghijklmnopq
+sk-proj-AbCdEfGhIj
+sk-ant-api03-AbCdEfGhIj
+hf_AbCdEfGhIj
+ya29.AbCdEfGhIj
+AccountKey=AbCdEfGhIj==
+heroku api_key 123e4567-e89b-12d3-a456-426614174000a
+github_pat_ConfigurationKey
+github_pat_
+xapp-navigation
+rk_live_test
+ASIA
+gsk_settings
+xai-config
+r8_download
+pplx-search
+glsa_config
+dckr_pat
+hvs
+tskey_label
+tskey-navigation
+pul_request
+rnd_value
+dp_status
+re_search
+xkeysib_config
+lin_api_url

@@ -1,0 +1,18 @@
+# Benign corpus — code excerpts with identifiers that look security-related.
+# Every line is an expected negative: the scanner must leave it unchanged.
+
+const auth = client.token.clone()
+auth.token.clone()
+self.api_key = config.get("api_key")
+password = getPassword()
+const token = session.token
+client.setToken(loadToken())
+export const API_KEY = "changeme"
+const secret = deriveSecret(seed)
+obj.password = "example"
+config.passwd = null
+const pwd = process.env.PWD
+function validateToken(tok) { return tok.length > 8 }
+await client.authorize(scope)
+const privateKey = readKey(path)
+key_id = "0123456789abcdef"

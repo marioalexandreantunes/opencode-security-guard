@@ -1,0 +1,69 @@
+# Adversarial corpus — must-not-catch rows (add-adversarial-corpus).
+#
+# One synthetic value per line. The harness asserts the scanner leaves every
+# line unchanged with zero hits (wrong prefix / under-minimum / over-length /
+# low-entropy lookalikes). Blank lines and lines starting with '#' are ignored.
+#
+# Harness self-test row (existing rule lookalike):
+glpat-AbCdEf
+
+# Batch 2 — boundary negatives (task 2.3): AWS STS (exact 20), GitHub fine-grained
+# (min 40), Slack app (min 10), Stripe restricted (min 24). Every value is an
+# explicit expected negative. The high-entropy `github_pat_` len_min-1 variant is
+# rescued by `entropy-blob` and is documented in evidence.md, not listed here.
+ASIB7K2M9PLQX3WZ8VBN
+ASIA7K2M9PLQX3WZ8VB
+ASIA7K2M9PLQX3WZ8VBNX
+gitlab_pat_AbCdEf
+github_pat_Aa1Aa1Aa1Aa1Aa1Aa1Aa1Aa1Aa1Aa1Aa1Aa1Aa1
+xaap-1-A1B2C3
+xapp-A1B2C3D4E
+xapp-navigation
+rk_test_51AbCdEfGhIjKlM
+rk_live_51AbCdEfGhIjKlMnOpQrStU
+
+# Batch 3 — boundary negatives (task 3.3): Groq (exact 52), xAI (exact 84),
+# Replicate (exact 40), Perplexity (min 30). Letters only, so `entropy-blob`
+# (which requires a digit) cannot rescue them.
+gsk-AbCdEfGhIj
+xai_AbCdEfGhIj
+r8-AbCdEfGhIj
+pplx_AbCdEfGhIj
+gsk_AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfG
+gsk_AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhI
+xai-AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhI
+xai-AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjA
+r8_AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEf
+r8_AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGh
+pplx-AbCdEfGhIjAbCdEfGhIjAbCdEfGhI
+
+# Batch 4 — boundary negatives (task 4.3): Grafana (min 32), Docker (min 26),
+# Vault (min 24), Tailscale (min 10). Letters only, so `entropy-blob` cannot
+# rescue them.
+glsb_AbCdEf
+dckr_pat-AbCdEf
+hvs_AbCdEf
+tskeyy-AbCdEf
+glsa_AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjA
+dckr_pat_AbCdEfGhIjAbCdEfGhIjAbCdE
+hvs.AbCdEfGhIjAbCdEfGhIjAbC
+tskey-AbCdEfGhI
+tskey-navigation
+
+# Batch 5 — boundary negatives (task 5.3): Pulumi (exact 44), Render (min 40),
+# Doppler (40–44), Resend (min 30), Brevo (min 40), Linear (min 30).
+# Letters only, so `entropy-blob` cannot rescue them.
+pul_AbCdEf
+rnd-AbCdEf
+dp.xx.AbCdEf
+re-AbCdEf
+xkeysib_AbCdEf
+lin_api-AbCdEf
+pul-AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhI
+pul-AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhIjA
+rnd_AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhI
+<fixture:doppler-short>
+<fixture:doppler-overlong>
+re_AbCdEfGhIjAbCdEfGhIjAbCdEfGhI
+xkeysib-AbCdEfGhIjAbCdEfGhIjAbCdEfGhIjAbCdEfGhI
+lin_api_AbCdEfGhIjAbCdEfGhIjAbCdEfGhI

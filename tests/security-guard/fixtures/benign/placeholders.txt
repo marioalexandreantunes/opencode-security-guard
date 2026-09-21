@@ -1,0 +1,17 @@
+# Benign corpus — placeholder-bearing configs (PLACEHOLDER-protected values).
+# Every line is an expected negative: the scanner must leave it unchanged.
+
+password: changeme
+api_key = "your_api_key_here"
+"password": "changeme"
+"token": "your_token_here"
+"client_secret": "example"
+token = "xxx"
+secret = "********"
+pwd = "changeme"
+"private_key": "placeholder"
+auth = "your_auth_here"
+"access_token": "sample"
+apiKey = "dummy"
+db_password = "todo"
+"secret": "none"

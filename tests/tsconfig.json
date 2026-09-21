@@ -1,0 +1,14 @@
+{
+  // Tests run under Node's type stripping (`node --test --experimental-strip-types`),
+  // so they are deliberately untyped. This project exists so editors resolve the
+  // `node:*` built-ins (and @types/node) for `.mts` files instead of falling back to
+  // an inferred project without Node types. `noCheck` suppresses the structural
+  // mock-shape errors a strict check would raise on the intentionally partial stubs.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "types": ["node"],
+    "noCheck": true
+  },
+  "include": ["**/*.mts"]
+}

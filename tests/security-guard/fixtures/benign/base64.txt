@@ -1,0 +1,13 @@
+# Benign corpus — base64 of short ordinary text (encoded span < 40 chars, so
+# it stays under the entropy-blob floor; longer base64 of prose is redacted as
+# a high-entropy blob by design — see evidence.md).
+# Every line is an expected negative: the scanner must leave it unchanged.
+
+bm90dCBhIGEgb3kgcHJyZWN0
+bm90dCBhIGEgb3kgcHJyZWN0IG8=
+SGVsZ2vY2F1Y2Fy
+aGVsb2FyIGVzIG5vY2FyIHdvcm8=
+dGhpcyBpcyBub3QgYSBzZWNyZXQ=
+SGVsbG8gYSBzZWN5IG5vY2Fy
+dG9vZWN5IGVsb2F5
+Y2FyIGVzIG5vY2FyIHdvcm8gYSBzZWN5
