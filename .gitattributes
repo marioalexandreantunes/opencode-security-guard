@@ -1,0 +1,3 @@
+# Normalize line endings to LF on checkout and commit, so the Biome formatter
+# (`lineEnding: lf`) is stable across Linux, macOS and Windows.
+* text=auto eol=lf

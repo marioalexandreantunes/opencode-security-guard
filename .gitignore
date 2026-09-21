@@ -1,0 +1,119 @@
+# .gitignore — security-guard (TypeScript opencode plugin)
+# Central repo file. The manifests `.opencode/package.json` and
+# `.opencode/package-lock.json` are versioned for reproducible installs;
+# local artifacts stay covered by the rules below.
+
+# OS files (macOS / Windows / Linux)
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+
+# Editors and IDEs
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*.swn
+.vim/
+.project
+.classpath
+.settings/
+
+# Dependencies: Node.js / Bun
+# Never ignore lockfiles (`package-lock.json`, `bun.lock`) —
+# required for reproducible installs.
+node_modules/
+jspm_packages/
+.pnp/
+.pnp.js
+.yarn/*
+!.yarn/patches/
+!.yarn/releases/
+!.yarn/plugins/
+!.yarn/sdks/
+!.yarn/versions/
+.pnpm-store/
+
+# TypeScript build output
+dist/
+build/
+out/
+lib/
+esm/
+cjs/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+*.js.map
+*.d.ts.map
+
+# Tool caches
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+.stylelintcache
+.ts-node/
+.rpt2_cache/
+.rts2_cache_*/
+
+# Tests and coverage
+coverage/
+.nyc_output/
+*.lcov
+junit.xml
+test-results/
+reports/
+
+# Logs
+# Includes the plugin's own log (`SECURITY_GUARD_LOG`; defaults to
+# `<projectRoot>/.security-guard/security-guard.log`, with a temporary
+# fallback `opencode-security-guard.log` in tmpdir, plus rotation `.log.1`).
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment and secrets
+# Consistent with the plugin: none of this should reach the repo.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.asc
+*.ppk
+credentials.json
+secrets.yaml
+secrets.yml
+
+# AI agents (opencode, Kilo, ...): version config, ignore local state
+# Versioned per agent dir: plugins/, commands/, skills/, agents/, manifests.
+# Ignored: locally generated deps, caches, logs, and auth tokens.
+.opencode/*
+opencode.json.local
+**/auth.json
+.kilo/*
+# security-guard (plugin local state)
+.security-guard/*
+
+# Packages and temporary files
+*.tgz
+*.tar.gz
+*.zip
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+.stryker-tmp/
