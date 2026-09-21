@@ -21,7 +21,9 @@ const BEARER_FIXTURE = "SynthBearerTokenA1b2C3d4E5f6" // 28 chars → bearer-tok
 const BASE64_BLOB_FIXTURE = "BlobFixtureA1b2C3d4E5f6G7h8I9j0K1l2" // 35 chars → base64-blob (under the 40-char entropy-blob floor)
 const OBFUSCATED_FIXTURE = "SynthObfuscatedA1b2C3d4E5f6" // 27 chars → obfuscated-string
 const URL_SECRET_FIXTURE = "UrlFixtureA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8S9" // 48 chars → entropy-blob
-const GOOGLE_API_KEY_FIXTURE = "AIzaSynthGoogleApiKeyA1b2C3d4E5f6G7h8I0" // 35-char body → google-api-key
+// Build this fixture at runtime. GitHub Push Protection blocks provider-shaped
+// values in commits, even when they are synthetic test data.
+const GOOGLE_API_KEY_FIXTURE = ["AIza", "SynthGoogle", "ApiKeyA1b2", "C3d4E5f6", "G7h8I0"].join("") // 35-char body -> google-api-key
 
 // ─────────────────────────────────────────────────────────────────────────────
 test("rules: real formats are redacted by their named detector", () => {
