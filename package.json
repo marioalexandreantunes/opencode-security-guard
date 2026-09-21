@@ -1,0 +1,63 @@
+{
+  "name": "opencode-security-guard",
+  "version": "0.1.0",
+  "description": "OpenCode security plugin that redacts secrets at the inference boundary and blocks unsafe file access, shell commands, and secret exfiltration.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/security-guard.js",
+  "types": "./dist/security-guard.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/security-guard.d.ts",
+      "import": "./dist/security-guard.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run build && tsc -p scripts/tsconfig.json --noEmit",
+    "lint": "biome lint --error-on-warnings src tests scripts",
+    "format": "biome format --write src tests scripts",
+    "format:check": "biome format src tests scripts",
+    "test": "node --import ./tests/setup-env.mts --test --test-concurrency=4 --experimental-strip-types \"tests/**/*.test.mts\"",
+    "test:property": "node --import ./tests/setup-env.mts --test --test-concurrency=1 --experimental-strip-types tests/security-guard/property-scanner.mts",
+    "test:property:nightly": "SG_FUZZ_NIGHTLY=1 npm run test:property",
+    "coverage": "c8 --check-coverage --lines 90 --branches 85 --include \"src/**/*.ts\" --reporter=text npm test",
+    "mutation": "stryker run",
+    "integration:dist": "node scripts/integration-dist.mjs",
+    "smoke:dist": "node scripts/smoke-dist.mjs",
+    "prepublishOnly": "bash scripts/quality-gate.sh"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "security",
+    "secrets",
+    "redaction",
+    "guard"
+  ],
+  "peerDependencies": {
+    "@opencode-ai/plugin": "1.18.31"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@opencode-ai/plugin": "^1.18.31",
+    "@stryker-mutator/core": "10.0.0",
+    "@types/node": "26.6.1",
+    "c8": "12.0.0",
+    "fast-check": "^4.10.1",
+    "tsup": "^8.5.1",
+    "typescript": "5.9.3"
+  },
+  "overrides": {
+    "esbuild": "0.28.2",
+    "qs": "^6.16.0"
+  }
+}
