@@ -1,0 +1,119 @@
+# GitHub Actions verification: the single CI source of truth (replaces
+# `docs/.gitlab-ci.yml`, retired with the repository migration to GitHub).
+#
+# Minutes budget (private repository, ~2 000 min/month; Windows minutes x2):
+# - the Node matrix runs only on pushes to `main` and on pull requests — never
+#   on every branch push — so routine work costs ~25-30 min per change;
+# - the heavy jobs (mutation ~26 min, large-count property suite, SDK floor
+#   leg) are consolidated into ONE weekly run (~40-45 min/week, ~180-200
+#   min/month) instead of daily, plus manual dispatch for maintainer-initiated
+#   checks. A weekly cadence lets a mutation regression live up to 7 days;
+#   any `workflow_dispatch` run closes that window on demand.
+# - macOS has no SaaS runner within budget (macOS minutes x10 on private
+#   repos); it stays verified locally, as with the retired GitLab definition.
+name: verify
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Fast gates on Linux across the supported Node runtimes (mirrors the
+  # retired GitLab `verify:linux` matrix: the `.nvmrc` dev default 22.23, the
+  # LTS 24 and current 26; the declared `engines` floor `>=22.6` is lower).
+  verify-linux:
+    # The weekly schedule and manual dispatches run only the heavy job below.
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.23.2", "24", "26"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: node --version
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run test:property
+      - run: npm run coverage
+      - run: npm run build
+      - run: npm run integration:dist
+      - run: npm run smoke:dist
+
+  # Fast gates on Windows (replaces the GitLab zip-download bootstrap, which
+  # existed only because the SaaS Windows image shipped Node 21; `setup-node`
+  # is the idiomatic equivalent). NOTE: this is the first-ever executable
+  # Windows validation — the GitLab Windows job never ran (UNVERIFIED) — so
+  # first-run failures are triaged as findings, not flakiness.
+  verify-windows:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.23.2"
+          cache: npm
+      - run: node --version
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run test:property
+      - run: npm run coverage
+      - run: npm run build
+      - run: npm run integration:dist
+      - run: npm run smoke:dist
+
+  # Heavy gates, weekly + manual: the blocking mutation gate (`break: 80` is
+  # the enforced contract floor — a score below it fails the job, replacing
+  # GitLab's `allow_failure: true`), then the large-count property suite with
+  # a random seed (the printed `SG_FUZZ_SEED` replays a failure), then the
+  # SDK floor-compatibility leg so the declared peer floor cannot drift.
+  weekly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      # Proven SDK floor (see evidence: oldest @opencode-ai/plugin passing
+      # `npm run typecheck` + `npm test` is 1.1.62; ceiling is the devDependency).
+      SDK_FLOOR: "1.1.62"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: node --version
+      - run: npm ci
+      - run: npm run mutation
+      - run: npm run test:property:nightly
+      - run: npm install --no-save @opencode-ai/plugin@$SDK_FLOOR
+      - run: npm run typecheck
+      - run: npm test
