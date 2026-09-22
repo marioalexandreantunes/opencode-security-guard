@@ -120,3 +120,4 @@ openspec/*
 *.orig
 *.rej
 .stryker-tmp/
+AGENTS.md
