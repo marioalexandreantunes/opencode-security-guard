@@ -4,8 +4,8 @@
 # Minutes budget (private repository, ~2 000 min/month; Windows minutes x2):
 # - the Node matrix runs only on pushes to `main` and on pull requests — never
 #   on every branch push — so routine work costs ~25-30 min per change;
-# - the heavy jobs (mutation ~26 min, large-count property suite, SDK floor
-#   leg) are consolidated into ONE weekly run (~40-45 min/week, ~180-200
+# - the heavy jobs (mutation ~26 min, large-count property suite) are
+#   consolidated into ONE weekly run (~40-45 min/week, ~180-200
 #   min/month) instead of daily, plus manual dispatch for maintainer-initiated
 #   checks. A weekly cadence lets a mutation regression live up to 7 days;
 #   any `workflow_dispatch` run closes that window on demand.
@@ -95,15 +95,10 @@ jobs:
   # Heavy gates, weekly + manual: the blocking mutation gate (`break: 80` is
   # the enforced contract floor — a score below it fails the job, replacing
   # GitLab's `allow_failure: true`), then the large-count property suite with
-  # a random seed (the printed `SG_FUZZ_SEED` replays a failure), then the
-  # SDK floor-compatibility leg so the declared peer floor cannot drift.
+  # a random seed (the printed `SG_FUZZ_SEED` replays a failure).
   weekly:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    env:
-      # Proven SDK floor (see evidence: oldest @opencode-ai/plugin passing
-      # `npm run typecheck` + `npm test` is 1.1.62; ceiling is the devDependency).
-      SDK_FLOOR: "1.1.62"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
@@ -114,6 +109,3 @@ jobs:
       - run: npm ci
       - run: npm run mutation
       - run: npm run test:property:nightly
-      - run: npm install --no-save @opencode-ai/plugin@$SDK_FLOOR
-      - run: npm run typecheck
-      - run: npm test

@@ -3,8 +3,8 @@
 ![Technical overview of the OpenCode Security Guard architecture and data flow](https://i.imgur.com/uH9O3hP.png)
 
 > CI status: GitHub Actions validates the supported Linux and Windows matrix on
-> every push to `main` and pull request. The scheduled workflow runs mutation,
-> property and SDK-floor compatibility gates.
+> every push to `main` and pull request. The scheduled workflow runs mutation
+> and property gates.
 
 Project started on 17 August 2026.
 
@@ -352,11 +352,13 @@ Notes:
 
 ### SDK compatibility
 
-| Dependency | Tested floor | Tested ceiling | Validation method |
-| --- | --- | --- | --- |
-| `@opencode-ai/plugin` | 1.1.62 | `^1.18.31` (devDependency) | per-version `npm install <candidate> --no-save` + `npm run typecheck` + `npm test` |
+The plugin pins its `@opencode-ai/plugin` peer dependency to the exact SDK version it is built and validated against. The contract depends on `experimental.*` hook types, so no wider compatibility range is advertised.
 
-`peerDependencies` declares `>=1.1.62` (probed, not assumed). The experimental history/system transform hook types arrived in 1.0.154. The `tool.execute.after` input gained `args` in 1.1.62, which is the oldest version passing both gates. Version 1.0.153 fails typecheck because the system-transform hook is missing. Versions 1.0.154 to 1.1.61 fail because `args` is missing. The weekly CI job re-installs the floor and re-runs typecheck and tests, so the declared range cannot drift silently.
+| Dependency | Pinned version | Validation method |
+| --- | --- | --- |
+| `@opencode-ai/plugin` | `1.18.31` (peerDependency and devDependency) | `npm run typecheck` + `npm test` on the pinned version |
+
+`peerDependencies` and the devDependency both resolve to `1.18.31`, so the installed SDK always matches the validated contract.
 
 ### Continuous integration
 
@@ -365,7 +367,7 @@ Quality gates are configured and enforced through GitHub Actions
 GitLab definition was removed as part of this change:
 
 - Fast gates run on pushes to `main` and pull requests on the Linux Node matrix (22.23/24/26) and a Windows job (22.23.2). They include typecheck, lint, format:check, test, property test, coverage, build, the dist integration harness (`npm run integration:dist`) and smoke;
-- a weekly scheduled job (also manually dispatchable) runs the blocking mutation gate (`break: 80`), the large-count property suite and the SDK floor-compatibility leg.
+- a weekly scheduled job (also manually dispatchable) runs the blocking mutation gate (`break: 80`) and the large-count property suite.
 
 Supplementary local enforcement: `scripts/quality-gate.sh` runs the same fast-gate sequence (opt-in `pre-push` hook via `scripts/install-hooks.sh`; full sequence also runs on `prepublishOnly`). The hook and the publish gate need `bash` on `PATH` (Git Bash on Windows). macOS is verified locally; Linux and Windows are covered by GitHub Actions.
 
