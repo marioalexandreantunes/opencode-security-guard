@@ -2,11 +2,12 @@
 // registered root, so it needs its own file (the per-root registry makes the
 // factory a no-op for an already-registered root).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/loaded-log.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-loaded-log-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG
@@ -31,7 +32,7 @@ test("characterization: loaded event carries the log schema and plugin version",
     const loaded = events.find((e) => e.event === "loaded")
     assert.ok(loaded, "no loaded event")
     assert.equal(loaded.level, "info")
-    assert.equal(loaded.logSchema, 11)
+    assert.equal(loaded.logSchema, 12)
     assert.equal(loaded.pluginVersion, PLUGIN_VERSION)
     assert.equal(loaded.version, undefined, "the ambiguous version field must be gone")
     assert.equal(loaded.mode, MODE)

@@ -1,38 +1,39 @@
 // security-guard regression harness.
 // Imports the REAL internals from the modules (no string manipulation), to
 // run the tests against the source code actually used.
-import { MARKER, norm, fp } from "../../src/config.ts"
+
 import {
-    scan,
-    scanDeep,
-    RULES,
-    INDICATOR,
-    entropy,
-    looksReal,
-    looksSecret,
-    looksBare,
-    PLACEHOLDER,
-    PATHISH,
-    CODEISH,
-    WORDISH,
-    VERSIONISH,
-    SHORTISH,
-    createScanCache,
-    SCAN_CACHE_MAX,
-} from "../../src/rules.ts"
-import { isSensitivePath, diskHasSecrets, SENSITIVE_PATHS } from "../../src/paths.ts"
-import {
-    sensitiveToken,
+    API_WRITE,
     ENV_DUMP,
-    PS_ENV,
     ENV_ECHO,
     ENV_EXPORT,
-    WRITE_VERB,
-    API_WRITE,
     MARKER_RE,
+    PS_ENV,
+    sensitiveToken,
+    WRITE_VERB,
 } from "../../src/bash.ts"
+import { fp, MARKER, norm } from "../../src/config.ts"
 import { SecurityGuard } from "../../src/index.ts"
-import { redactStrings, redactDeep, redactSkipping, FAILED_PLACEHOLDER } from "../../src/redact.ts"
+import { inspectDiskTarget, isSensitivePath, SENSITIVE_PATHS } from "../../src/paths.ts"
+import { FAILED_PLACEHOLDER, redactDeep, redactSkipping, redactStrings } from "../../src/redact.ts"
+import {
+    CODEISH,
+    createScanCache,
+    entropy,
+    INDICATOR,
+    looksBare,
+    looksReal,
+    looksSecret,
+    PATHISH,
+    PLACEHOLDER,
+    RULES,
+    SCAN_CACHE_MAX,
+    SHORTISH,
+    scan,
+    scanDeep,
+    VERSIONISH,
+    WORDISH,
+} from "../../src/rules.ts"
 
 export async function loadGuard(): Promise<Record<string, any>> {
     return {
@@ -40,7 +41,7 @@ export async function loadGuard(): Promise<Record<string, any>> {
         scanDeep,
         sensitiveToken,
         isSensitivePath,
-        diskHasSecrets,
+        inspectDiskTarget,
         RULES,
         createScanCache,
         SCAN_CACHE_MAX,

@@ -2,11 +2,12 @@
 // `loaded`, `project-dir.ready` and `blocked.read` carry exactly the fields
 // declared in the typed `LogPayload` registry — no extras, none missing.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/log-record-shape.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-record-shape-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG
@@ -98,6 +99,36 @@ test("record shape: blocked.read carries exactly the alert fields", async () => 
         "the blocked.read record must not grow undocumented fields",
     )
     assert.equal(blocked.file, ".env", "a path under the project root is relativized")
+})
+
+test("record shape: blocked.write.fullrewrite carries a stable reason", async () => {
+    const rewriteProject = mkdtempSync(join(tmpdir(), "sg-rs-rewrite-"))
+    const file = join(rewriteProject, "secret-fullrewrite.txt")
+    const secret = "AKIA" + "A1B2C3D4E5F6G7H8"
+    writeFileSync(file, `api_key=${secret}\n`, "utf8")
+    const previous = process.env.SECURITY_GUARD_REHYDRATE
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        const projectHooks: any = await SecurityGuard({
+            client: {},
+            directory: rewriteProject,
+            worktree: rewriteProject,
+        })
+        await assert.rejects(
+            () => projectHooks["tool.execute.before"]({ tool: "write" }, { args: { filePath: file, content: "x" } }),
+            /cannot reproduce/,
+        )
+        const projectLog = getProjectContext(rewriteProject)?.logFile
+        assert.ok(projectLog, "no captured log for the rewrite project")
+        const blocked = recordsFrom(projectLog)
+            .filter((e) => e.event === "blocked.write.fullrewrite")
+            .at(-1)
+        assert.ok(blocked, "no blocked.write.fullrewrite record")
+        assert.equal(blocked.reason, "contains-secrets")
+        assert.ok(blocked.file)
+    } finally {
+        process.env.SECURITY_GUARD_REHYDRATE = previous
+    }
 })
 
 test("record shape: halted carries exactly directory and log", async () => {

@@ -201,7 +201,7 @@ re:acme-[0-9]{4}
 re:apikey_[0-9a-f]+(?:_[0-9a-f]+)*
 ```
 
-Matches are redacted at the inference boundary exactly like secrets (`chat.message`, the history transform, the system prompt and tool output), replaced by `<MARKER:blacklist:hash>` whose hash derives from the exact observed match (including its casing), and rehydrated through the vault like a secret marker. The declared literal casing or `re:` pattern is matching configuration only and is never written back. The blacklist is **not** applied to `bash` commands or to the on-disk `diskHasSecrets` scan (inference boundary only). An explicit `SECURITY_GUARD_BLACKLIST` wins over the project file and loads even with `SECURITY_GUARD_PROJECT_DIR=0`.
+Matches are redacted at the inference boundary exactly like secrets (`chat.message`, the history transform, the system prompt and tool output), replaced by `<MARKER:blacklist:hash>` whose hash derives from the exact observed match (including its casing), and rehydrated through the vault like a secret marker. The declared literal casing or `re:` pattern is matching configuration only and is never written back. The blacklist is **not** applied to `bash` commands or to on-disk write-target inspection (inference boundary only). An explicit `SECURITY_GUARD_BLACKLIST` wins over the project file and loads even with `SECURITY_GUARD_PROJECT_DIR=0`.
 
 ## Threat model
 
@@ -213,7 +213,7 @@ The guard protects the inference boundary: it stops secrets from being read, ech
 ### Known limitations
 
 - Detection is heuristic: unknown, short or low-entropy secrets, Unicode-obfuscated values and unusual shell syntax may pass. PII is not detected.
-- Scanning targets text strings and UTF-8 files, not buffers, streams or arbitrary binary data. The disk scan skips files over 2 MiB, non-files and unreadable files.
+- Scanning targets text strings and UTF-8 files, not buffers, streams or arbitrary binary data. For a full `write` with rehydration disabled, valid links are followed and their destinations are inspected; a missing or verified-clean target is allowed, while an oversized, non-regular, dangling-link, unreadable or metadata-inaccessible target is blocked as unverifiable. With rehydration enabled, this disk-inspection policy does not run.
 - Encoded values shorter than 20 characters, malformed/non-UTF-8 content and nested encodings may not be decoded. Decoding checks the 16 highest-entropy candidates per scan, up to 4 KiB each; base64 containing `/` may be split by the entropy rule.
 - Prompt injection, per-rule severity levels and external/JSON rule packs are out of scope.
 - `$VAR` and globs are not resolved in paths. `bash` checks paths lexically; file-tool destinations resolve symlinks and junctions canonically. Deleting sensitive files with `del`/`rm` is not blocked.
@@ -276,12 +276,13 @@ The result is deliberate: local development remains useful, including writing co
 
 ## Diagnostics
 
-The guard's own diagnostics are designed not to become a leak channel (log schema revision `11`):
+The guard's own diagnostics are designed not to become a leak channel (log schema revision `12`):
 
 - The log (`<projectRoot>/.security-guard/security-guard.log`) never contains secret values, blacklist terms, raw `SECURITY_GUARD_EXTRA_PATHS` patterns, or raw shell command text. Blocked `bash` events record the event name, tool, session/call identifiers, rule patterns and a project-root-relative `file` only.
 - Invalid `SECURITY_GUARD_EXTRA_PATHS` entries are reported as `config.invalid-path` with `{ index, error: "invalid-regular-expression" }`. The log never includes the pattern or engine message.
 - Bootstrap failures are reported as `project-dir.failed` with a stable `{ step, error }`. The `error` value is `mkdir-failed`, `write-failed` or `io-error`; the log never includes the platform message or an absolute path.
 - Write arguments that cannot be inspected for markers are reported as `blocked.marker-inspection` with `{ tool, error: "marker-inspection-failed" }`. The log never includes argument content, marker text or engine messages.
+- Full writes with rehydration disabled are reported as `blocked.write.fullrewrite` with `{ tool, file, reason }`, where `reason` is `contains-secrets`, `not-file`, `too-large`, `metadata-failed`, `dangling-link` or `read-failed`. Missing and verified-clean targets remain allowed; unverifiable existing targets are blocked. Raw filesystem errors are never logged or shown.
 - User-facing messages (toasts, thrown errors) carry project-root-relative paths; the log-write stderr warning is generic and names no path.
 
 ## Development
@@ -305,6 +306,27 @@ marker stability, benign pass-through, decode budgets and security invariants.
 The suite blocks merges in CI and runs nightly with a larger count. It is not
 part of `npm test`, so Stryker's command runner and the c8 coverage gate are
 unaffected.
+
+### Mutation testing
+
+The full Stryker gate runs with `npm run mutation` in scheduled CI. During local
+iteration, scope the run to the changed production file and redirect output to a
+log, for example:
+
+```sh
+npx stryker run --mutate src/paths.ts > stryker-paths.log 2>&1
+```
+
+Measured local Windows results from 2026-09-22 (`concurrency: 4`):
+
+| Scope | Mutants | Duration | Mutation score | Result |
+| --- | ---: | ---: | ---: | --- |
+| `src/paths.ts` | 177 | 5m 07s | 100.00% | 173 killed, 4 timed out, 0 survived |
+| `src/plugin.ts` | 673 | 48m 21s | 81.28% | 541 killed, 6 timed out, 126 survived |
+
+These timings are observational, not performance guarantees. They vary with CPU,
+background load, test duration and Stryker worker contention. Never run scoped
+Stryker jobs concurrently; remove their logs and generated reports afterwards.
 
 The build produces `dist/security-guard.js` + `dist/security-guard.d.ts` (ESM, no runtime dependencies). To test locally in a project, reference the bundle: `"plugin": ["file:///path/to/security-guard/dist/security-guard.js"]`. You can also reference the repository entry (`"plugin": ["./src/index.ts"]`) if opencode resolves the TS imports.
 

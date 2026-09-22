@@ -5,7 +5,7 @@
  * sensitive project-local state.
  */
 import * as fsx from "node:fs"
-import { norm, LOG_FILE, writeLog, isGuardLogPathFor } from "./config.ts"
+import { isGuardLogPathFor, LOG_FILE, norm, writeLog } from "./config.ts"
 import { scan } from "./rules.ts"
 import { canonicalizeRoot, resolveCanonicalTarget } from "./write-policy.ts"
 
@@ -109,16 +109,62 @@ export function isSensitivePathFor(scope: SensitivityScope, raw: unknown): boole
 /** Skip the on-disk secret scan above this size (too costly). */
 export const DISK_SCAN_MAX_BYTES = 2 * 1024 * 1024
 
+export type DiskInspectionReason = "not-file" | "too-large" | "metadata-failed" | "dangling-link" | "read-failed"
+export type DiskInspection =
+    | { readonly status: "missing" | "clean" | "contains-secrets" }
+    | { readonly status: "unverifiable"; readonly reason: DiskInspectionReason }
+
+export interface DiskInspectionOps {
+    readonly lstatSync: (file: string) => fsx.Stats
+    readonly statSync: (file: string) => fsx.Stats
+    readonly readFileSync: (file: string, encoding: "utf8") => string
+}
+
+const DEFAULT_DISK_INSPECTION_OPS: DiskInspectionOps = {
+    lstatSync: (file) => fsx.lstatSync(file),
+    statSync: (file) => fsx.statSync(file),
+    readFileSync: (file, encoding) => fsx.readFileSync(file, encoding),
+}
+
+function errorCode(error: unknown): string | undefined {
+    if (typeof error !== "object" || error === null || !("code" in error)) return undefined
+    const code = (error as { code?: unknown }).code
+    return typeof code === "string" ? code : undefined
+}
+
 /**
- * Scans the file on disk for secrets, used before a full rewrite. Returns
- * `false` for missing files, non-files and files over `DISK_SCAN_MAX_BYTES`.
+ * Classifies a target before a full rewrite. Only a missing initial directory
+ * entry is safe to treat as a new file; every other inspection failure fails closed.
  */
-export function diskHasSecrets(file: string): boolean {
+export function inspectDiskTarget(file: string, ops: DiskInspectionOps = DEFAULT_DISK_INSPECTION_OPS): DiskInspection {
+    let entry: fsx.Stats
     try {
-        const stat = fsx.statSync(file)
-        if (!stat.isFile() || stat.size > DISK_SCAN_MAX_BYTES) return false
-        return scan(fsx.readFileSync(file, "utf8")).hits.length > 0
+        entry = ops.lstatSync(file)
+    } catch (error) {
+        return errorCode(error) === "ENOENT"
+            ? { status: "missing" }
+            : { status: "unverifiable", reason: "metadata-failed" }
+    }
+
+    let stat = entry
+    if (entry.isSymbolicLink()) {
+        try {
+            stat = ops.statSync(file)
+        } catch (error) {
+            return errorCode(error) === "ENOENT"
+                ? { status: "unverifiable", reason: "dangling-link" }
+                : { status: "unverifiable", reason: "metadata-failed" }
+        }
+    }
+
+    if (!stat.isFile()) return { status: "unverifiable", reason: "not-file" }
+    if (stat.size > DISK_SCAN_MAX_BYTES) return { status: "unverifiable", reason: "too-large" }
+
+    try {
+        return scan(ops.readFileSync(file, "utf8")).hits.length > 0
+            ? { status: "contains-secrets" }
+            : { status: "clean" }
     } catch {
-        return false // new file -> nothing to protect
+        return { status: "unverifiable", reason: "read-failed" }
     }
 }

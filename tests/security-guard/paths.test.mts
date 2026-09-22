@@ -2,16 +2,17 @@
 // (strengthen-paths-mutation-tests). Hermetic: deletes the extra-paths variable
 // before import so the catalogue is exactly the built-in list.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/paths.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdirSync, mkdtempSync, rmSync, truncateSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 delete process.env.SECURITY_GUARD_EXTRA_PATHS
 
 const cfg = await import("../../src/config.ts")
-const { SENSITIVE_PATHS, isSensitivePath, isSensitivePathFor, escapeRe, diskHasSecrets, DISK_SCAN_MAX_BYTES } =
+const { SENSITIVE_PATHS, isSensitivePath, isSensitivePathFor, escapeRe, inspectDiskTarget, DISK_SCAN_MAX_BYTES } =
     await import("../../src/paths.ts")
 
 // A deterministic AWS-shaped key (regex `\bAKIA[0-9A-Z]{16}\b`); split so the
@@ -170,35 +171,110 @@ test("escapeRe escapes regex metacharacters", () => {
     assert.equal(escapeRe("."), "\\.")
 })
 
-test("diskHasSecrets: scanned vs skipped boundaries", () => {
+test("inspectDiskTarget: classifies every disk outcome", () => {
     const dir = mkdtempSync(join(tmpdir(), "sg-disk-"))
     try {
-        assert.equal(diskHasSecrets(join(dir, "missing.txt")), false, "missing path")
+        assert.deepEqual(inspectDiskTarget(join(dir, "missing.txt")), { status: "missing" })
 
         const sub = join(dir, "sub")
         mkdirSync(sub)
-        assert.equal(diskHasSecrets(sub), false, "directory is not a file")
+        assert.deepEqual(inspectDiskTarget(sub), { status: "unverifiable", reason: "not-file" })
 
         const clean = join(dir, "clean.txt")
         writeFileSync(clean, "an ordinary note, no secret here\n", "utf8")
-        assert.equal(diskHasSecrets(clean), false, "scanned file with no hit")
+        assert.deepEqual(inspectDiskTarget(clean), { status: "clean" })
 
         const secret = join(dir, "secret.txt")
         writeFileSync(secret, `${SECRET}\n`, "utf8")
-        assert.equal(diskHasSecrets(secret), true, "secret-bearing file")
+        assert.deepEqual(inspectDiskTarget(secret), { status: "contains-secrets" })
 
         const atMax = join(dir, "at-max.txt")
         writeFileSync(atMax, `${SECRET}\n`, "utf8")
         truncateSync(atMax, DISK_SCAN_MAX_BYTES)
-        assert.equal(diskHasSecrets(atMax), true, "exactly DISK_SCAN_MAX_BYTES is scanned")
+        assert.deepEqual(inspectDiskTarget(atMax), { status: "contains-secrets" })
 
         const overMax = join(dir, "over-max.txt")
         writeFileSync(overMax, `${SECRET}\n`, "utf8")
         truncateSync(overMax, DISK_SCAN_MAX_BYTES + 1)
-        assert.equal(diskHasSecrets(overMax), false, "over DISK_SCAN_MAX_BYTES is skipped")
+        assert.deepEqual(inspectDiskTarget(overMax), { status: "unverifiable", reason: "too-large" })
     } finally {
         rmSync(dir, { recursive: true, force: true })
     }
+})
+
+test("inspectDiskTarget: distinguishes links and filesystem failures", () => {
+    const regular = { isSymbolicLink: () => false, isFile: () => true, size: 1 } as any
+    const link = { isSymbolicLink: () => true, isFile: () => false, size: 0 } as any
+    const directory = { isSymbolicLink: () => false, isFile: () => false, size: 0 } as any
+    let reads = 0
+
+    assert.deepEqual(
+        inspectDiskTarget("valid-link", {
+            lstatSync: () => link,
+            statSync: () => regular,
+            readFileSync: () => "ordinary",
+        }),
+        { status: "clean" },
+    )
+    assert.deepEqual(
+        inspectDiskTarget("valid-secret-link", {
+            lstatSync: () => link,
+            statSync: () => regular,
+            readFileSync: () => `${SECRET}\n`,
+        }),
+        { status: "contains-secrets" },
+    )
+    assert.deepEqual(
+        inspectDiskTarget("dangling-link", {
+            lstatSync: () => link,
+            statSync: () => {
+                const error = new Error("link target missing") as Error & { code?: string }
+                error.code = "ENOENT"
+                throw error
+            },
+            readFileSync: () => "unused",
+        }),
+        { status: "unverifiable", reason: "dangling-link" },
+    )
+    assert.deepEqual(
+        inspectDiskTarget("metadata-failure", {
+            lstatSync: () => {
+                const error = new Error("private path") as Error & { code?: string }
+                error.code = "EACCES"
+                throw error
+            },
+            statSync: () => directory,
+            readFileSync: () => "unused",
+        }),
+        { status: "unverifiable", reason: "metadata-failed" },
+    )
+    assert.deepEqual(
+        inspectDiskTarget("read-failure", {
+            lstatSync: () => regular,
+            statSync: () => regular,
+            readFileSync: () => {
+                reads++
+                throw new Error("read details must stay private")
+            },
+        }),
+        { status: "unverifiable", reason: "read-failed" },
+    )
+    assert.equal(reads, 1)
+
+    let oversizedReads = 0
+    const oversized = { isSymbolicLink: () => false, isFile: () => true, size: DISK_SCAN_MAX_BYTES + 1 } as any
+    assert.deepEqual(
+        inspectDiskTarget("oversized", {
+            lstatSync: () => oversized,
+            statSync: () => oversized,
+            readFileSync: () => {
+                oversizedReads++
+                return "must not read"
+            },
+        }),
+        { status: "unverifiable", reason: "too-large" },
+    )
+    assert.equal(oversizedReads, 0)
 })
 
 // Run last: this relocates the process-wide LOG_FILE, which the tests above

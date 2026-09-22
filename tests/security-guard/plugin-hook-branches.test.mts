@@ -2,11 +2,14 @@
 // matrix (block events, rehydration flag matrix, log payloads, fail-closed path).
 // Drives the REAL hooks instead of mirroring the decision sequence.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/plugin-hook-branches.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import fs, { mkdirSync, mkdtempSync, readFileSync, truncateSync, writeFileSync } from "node:fs"
+import { syncBuiltinESMExports } from "node:module"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
+import { fileLinkSkipReason, linkFile } from "./platform-fixtures.mts"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-hook-branches-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG
@@ -84,6 +87,104 @@ test("before: a sensitive read is allowed in redact mode", async () => {
 
 test("before: a non-sensitive write without markers is allowed", async () => {
     await assert.doesNotReject(() => before("write", { filePath: inside, content: "plain text" }))
+})
+
+test("before: an existing clean file is allowed when rehydration is off", async () => {
+    const clean = join(project, "clean-notes.txt")
+    writeFileSync(clean, "ordinary text\n", "utf8")
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        const n = events("blocked.write.fullrewrite").length
+        await assert.doesNotReject(() => before("write", { filePath: clean, content: "rewritten" }))
+        assert.equal(events("blocked.write.fullrewrite").length, n)
+    } finally {
+        delete process.env.SECURITY_GUARD_REHYDRATE
+    }
+})
+
+test("before: a dangling link is blocked when rehydration is off", { skip: fileLinkSkipReason() }, async () => {
+    const link = join(project, "dangling-link.txt")
+    linkFile(join(project, "missing-link-target.txt"), link)
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        const n = events("blocked.write.fullrewrite").length
+        await assert.rejects(
+            () => before("write", { filePath: link, content: "rewritten" }),
+            /could not be inspected safely/,
+        )
+        const ev = events("blocked.write.fullrewrite").slice(n)
+        assert.equal(ev.length, 1)
+        assert.equal(ev[0].reason, "dangling-link")
+    } finally {
+        delete process.env.SECURITY_GUARD_REHYDRATE
+    }
+})
+
+// syncBuiltinESMExports mutates process-wide bindings, so this test must stay
+// sequential and restore the original function in its finally block.
+test("before: a read failure is blocked without exposing its error", { concurrency: false }, async () => {
+    const readFailure = join(project, "read-failure.txt")
+    writeFileSync(readFailure, "ordinary text\n", "utf8")
+    const originalReadFileSync = fs.readFileSync
+    const privateError = "private-read-detail"
+    fs.readFileSync = ((file: any, ...args: any[]) => {
+        if (String(file) === readFailure) throw Object.assign(new Error(privateError), { code: "EIO" })
+        return originalReadFileSync(file, ...args)
+    }) as typeof fs.readFileSync
+    syncBuiltinESMExports()
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        const n = events("blocked.write.fullrewrite").length
+        await assert.rejects(
+            () => before("write", { filePath: readFailure, content: "rewritten" }),
+            (error: unknown) =>
+                !String(error).includes(privateError) && String(error).includes("could not be inspected safely"),
+        )
+        const ev = events("blocked.write.fullrewrite").slice(n)
+        assert.equal(ev.length, 1)
+        assert.equal(ev[0].reason, "read-failed")
+        assert.ok(!JSON.stringify(ev).includes(privateError))
+        assert.ok(!lastMessage().includes(privateError))
+    } finally {
+        fs.readFileSync = originalReadFileSync
+        syncBuiltinESMExports()
+        delete process.env.SECURITY_GUARD_REHYDRATE
+    }
+})
+
+test("before: relative write targets are inspected below the project root", async () => {
+    const relativeSecret = "relative-secret.txt"
+    writeFileSync(join(project, relativeSecret), CRED)
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        await assert.rejects(
+            () => before("write", { filePath: relativeSecret, content: "rewritten" }),
+            /cannot reproduce the file faithfully/,
+        )
+    } finally {
+        delete process.env.SECURITY_GUARD_REHYDRATE
+    }
+})
+
+test("before: guarded target extraction is not repeated", async () => {
+    let reads = 0
+    const args: any = { content: "plain text" }
+    Object.defineProperty(args, "filePath", {
+        enumerable: true,
+        get() {
+            reads++
+            if (reads === 1) return undefined
+            if (reads === 2) return "new-stateful-target.txt"
+            throw new Error("target-read-twice")
+        },
+    })
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        await assert.doesNotReject(() => before("write", args))
+        assert.equal(reads, 2)
+    } finally {
+        delete process.env.SECURITY_GUARD_REHYDRATE
+    }
 })
 
 // ── before: block events ──────────────────────────────────────────────────
@@ -275,11 +376,68 @@ test("before: a full rewrite of a secret-bearing file is blocked when rehydratio
         const ev = events("blocked.write.fullrewrite").slice(n)
         assert.equal(ev.length, 1)
         assert.equal(ev[0].level, "warn")
+        assert.equal(ev[0].reason, "contains-secrets")
         assert.equal(ev[0].file, "secret-notes.txt", "a path under the project root is relativized")
         assert.ok(lastMessage().includes("secrets"))
     } finally {
         delete process.env.SECURITY_GUARD_REHYDRATE
     }
+})
+
+test("before: unverifiable targets are blocked when rehydration is off", async () => {
+    const oversized = join(project, "oversized-notes.txt")
+    writeFileSync(oversized, `${CRED}\n`)
+    truncateSync(oversized, 2 * 1024 * 1024 + 1)
+    const directory = join(project, "write-directory")
+    mkdirSync(directory)
+    const invalid = join(project, "invalid\u0000target")
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        for (const [filePath, reason] of [
+            [oversized, "too-large"],
+            [directory, "not-file"],
+            [invalid, "metadata-failed"],
+        ] as const) {
+            const n = events("blocked.write.fullrewrite").length
+            await assert.rejects(
+                () => before("write", { filePath, content: "rewritten" }),
+                /could not be inspected safely/,
+            )
+            const ev = events("blocked.write.fullrewrite").slice(n)
+            assert.equal(ev.length, 1)
+            assert.equal(ev[0].reason, reason)
+            assert.ok(!lastMessage().includes("EACCES"))
+        }
+    } finally {
+        delete process.env.SECURITY_GUARD_REHYDRATE
+    }
+})
+
+test("before: marker blocking takes precedence over full-rewrite inspection", async () => {
+    const f = join(project, "marker-secret-notes.txt")
+    writeFileSync(f, `${CRED}\n`)
+    process.env.SECURITY_GUARD_REHYDRATE = "0"
+    try {
+        const markerBlocks = events("blocked.marker-writeback").length
+        const rewriteBlocks = events("blocked.write.fullrewrite").length
+        await assert.rejects(() => before("write", { filePath: f, content: UNKNOWN }), /placeholders/)
+        assert.equal(events("blocked.marker-writeback").length, markerBlocks + 1)
+        assert.equal(events("blocked.write.fullrewrite").length, rewriteBlocks)
+    } finally {
+        delete process.env.SECURITY_GUARD_REHYDRATE
+    }
+})
+
+test("before: unverifiable targets do not add a full-rewrite block when rehydration is on", async () => {
+    const oversized = join(project, "rehydrated-oversized.txt")
+    writeFileSync(oversized, `${CRED}\n`)
+    truncateSync(oversized, 2 * 1024 * 1024 + 1)
+    const directory = join(project, "rehydrated-directory")
+    mkdirSync(directory)
+    const n = events("blocked.write.fullrewrite").length
+    await before("write", { filePath: oversized, content: "rewritten" })
+    await before("write", { filePath: directory, content: "rewritten" })
+    assert.equal(events("blocked.write.fullrewrite").length, n)
 })
 
 test("before: opt-in bash rehydration restores known markers", async () => {

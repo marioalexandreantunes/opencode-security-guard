@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Breaking:** Full writes with rehydration disabled now fail closed for existing targets that contain secrets or cannot be inspected, including oversized, non-regular, dangling-link and filesystem-error cases.
+- `blocked.write.fullrewrite` now records stable inspection reasons; the diagnostic log schema is revision 12.
 - Invalid write arguments, including cyclic values, `BigInt` values and throwing accessors, now return a coded diagnostic instead of throwing.
 
 ## [0.1.0] - 2026-09-09

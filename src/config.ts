@@ -4,10 +4,11 @@
  * paths, bash, blacklist, project-dir and plugin. `LOG_FILE` is settable after
  * import through `setLogFile` (project-local log bootstrap).
  */
-import * as fsx from "node:fs"
-import * as p from "node:path"
-import * as os from "node:os"
+
 import { createHash, createHmac, randomBytes } from "node:crypto"
+import * as fsx from "node:fs"
+import * as os from "node:os"
+import * as p from "node:path"
 
 /** Placeholder prefix that replaces a secret: `<MARKER:rule:hash>`. */
 export const MARKER = "SECURITY_GUARD_REDACTED"
@@ -162,6 +163,14 @@ export function isGuardLogPathFor(logFile: string, raw: string): boolean {
  * value. `blocked.*` payloads stay open-ended (`alert()` fans them through
  * `sanitize()`); the discriminating fields are typed, extras allowed.
  */
+export type FullRewriteReason =
+    | "contains-secrets"
+    | "not-file"
+    | "too-large"
+    | "metadata-failed"
+    | "dangling-link"
+    | "read-failed"
+
 export type LogPayload = {
     loaded: { logSchema: number; pluginVersion: string; mode: string; directory: string; log: string }
     halted: { directory: string; log: string }
@@ -191,7 +200,7 @@ export type LogPayload = {
     "blocked.read": BlockedRecord
     "blocked.write": BlockedRecord
     "blocked.write.external": BlockedRecord
-    "blocked.write.fullrewrite": BlockedRecord
+    "blocked.write.fullrewrite": BlockedRecord & { reason: FullRewriteReason }
     "blocked.marker-writeback": BlockedRecord
     "blocked.marker-inspection": BlockedRecord
     "blocked.bash.network": BlockedRecord

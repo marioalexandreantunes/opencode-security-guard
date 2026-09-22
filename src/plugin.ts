@@ -4,51 +4,53 @@
  * scanner (secrets + team blacklist) into every inference boundary and keeps
  * the blacklist hot-reloaded, invalidating the scan cache on change.
  */
+
+import { existsSync } from "node:fs"
+import * as p from "node:path"
+import type { Hooks } from "@opencode-ai/plugin"
 import {
-    MARKER,
-    MODE,
-    QUIET,
-    LOG_FILE,
-    TOAST_COOLDOWN_MS,
-    PLUGIN_VERSION,
+    API_WRITE,
+    ENV_DUMP,
+    ENV_ECHO,
+    ENV_EXPORT,
+    MARKER_RE,
+    NET_VERB,
+    PS_ENV,
+    sensitiveToken,
+    WRITE_VERB,
+} from "./bash.ts"
+import { createBlacklist } from "./blacklist.ts"
+import {
     createProjectContext,
+    type FullRewriteReason,
     getProjectContext,
     isLogPathOwnedByOther,
+    LOG_FILE,
+    type LogPayload,
     logAllows,
+    MARKER,
+    MODE,
     norm,
+    PLUGIN_VERSION,
+    type ProjectContext,
+    QUIET,
     registerProjectContext,
     releaseProjectContext,
     setContextLogFile,
     siblingLogPath,
+    TOAST_COOLDOWN_MS,
     uniqueSiblingLogPath,
-    type LogPayload,
-    type ProjectContext,
 } from "./config.ts"
-import { scan, rulesOf, uniqueOf, createScanCache, SCAN_CACHE_MAX, type Hit, type Scan } from "./rules.ts"
-import { isSensitivePathFor, diskHasSecrets, type SensitivityScope } from "./paths.ts"
-import {
-    sensitiveToken,
-    ENV_DUMP,
-    PS_ENV,
-    ENV_ECHO,
-    ENV_EXPORT,
-    WRITE_VERB,
-    API_WRITE,
-    MARKER_RE,
-    NET_VERB,
-} from "./bash.ts"
+import { inspectDiskTarget, isSensitivePathFor, type SensitivityScope } from "./paths.ts"
+import { bootstrapProjectDir, HALT_FILE, SECURITY_GUARD_DIR } from "./project-dir.ts"
+import { redactSkipping, redactStrings } from "./redact.ts"
+import { createScanCache, type Hit, rulesOf, SCAN_CACHE_MAX, type Scan, scan, uniqueOf } from "./rules.ts"
+import { neutraliseOutput, redactToolValue, TOOL_SKIP } from "./tool-output.ts"
 import { createVault } from "./vault.ts"
-import type { Hooks } from "@opencode-ai/plugin"
-import { redactStrings, redactSkipping } from "./redact.ts"
-import { TOOL_SKIP, redactToolValue, neutraliseOutput } from "./tool-output.ts"
-import { resolveProjectRoot, canonicalizeRoot, classifyDestination, writeTargets } from "./write-policy.ts"
-import { createBlacklist } from "./blacklist.ts"
-import { bootstrapProjectDir, SECURITY_GUARD_DIR, HALT_FILE } from "./project-dir.ts"
-import * as p from "node:path"
-import { existsSync } from "node:fs"
+import { canonicalizeRoot, classifyDestination, resolveProjectRoot, writeTargets } from "./write-policy.ts"
 
 /** Plugin log-schema revision; bump when the log record shape changes. */
-const LOG_SCHEMA_VERSION = 11
+const LOG_SCHEMA_VERSION = 12
 /** Maximum deterministic collision salts for an already-occupied sibling. */
 const MAX_LOG_COLLISION_ATTEMPTS = 16
 
@@ -472,11 +474,11 @@ export const SecurityGuard = async ({ client, directory, worktree }: SecurityGua
             }
 
             // write / edit
+            let targets: string[] = []
             if (tool === "write" || tool === "edit" || tool === "patch" || tool === "apply_patch") {
                 // Getters can still throw after JSON inspection (for example a
                 // non-enumerable or stateful getter), so target extraction is a
                 // second guarded boundary rather than an assumed-safe read.
-                let targets: string[] = []
                 try {
                     targets = writeTargets(args)
                 } catch {
@@ -561,21 +563,37 @@ export const SecurityGuard = async ({ client, directory, worktree }: SecurityGua
 
             // Full rewrite of a file that contains secrets: the agent NEVER saw
             // the real values, so it cannot reproduce the file faithfully.
-            // Only `edit` is safe.
+            // Only `edit` is safe. Reuse the guarded target so stateful getters
+            // are never read again, and resolve relative targets to this root.
             if (tool === "write") {
-                const f = String(args.filePath ?? args.path ?? "")
-                if (!rehydrateOn() && f && diskHasSecrets(f)) {
-                    const file = instance.logPath(f)
-                    await alert(
-                        "blocked.write.fullrewrite",
-                        { ...ctx, tool, file },
-                        `write blocked: ${file} contains redacted secrets`,
-                    )
-                    throw new Error(
-                        `security-guard: write blocked — "${file}" contains secrets that were ` +
-                            `redacted from you, so you cannot reproduce the file faithfully. ` +
-                            `Use "edit" with oldString/newString for surgical changes.`,
-                    )
+                const target = targets[0]
+                if (!rehydrateOn() && target !== undefined) {
+                    const resolvedTarget = p.resolve(projectRoot, target)
+                    const result = inspectDiskTarget(resolvedTarget)
+                    if (result.status !== "missing" && result.status !== "clean") {
+                        const reason: FullRewriteReason =
+                            result.status === "unverifiable" ? result.reason : "contains-secrets"
+                        const file = instance.logPath(target)
+                        await alert(
+                            "blocked.write.fullrewrite",
+                            { ...ctx, tool, file, reason },
+                            result.status === "contains-secrets"
+                                ? `write blocked: ${file} contains redacted secrets`
+                                : `write blocked: ${file} could not be inspected safely (${reason})`,
+                        )
+                        if (result.status === "contains-secrets") {
+                            throw new Error(
+                                `security-guard: write blocked — "${file}" contains secrets that were ` +
+                                    `redacted from you, so you cannot reproduce the file faithfully. ` +
+                                    `Use "edit" with oldString/newString for surgical changes.`,
+                            )
+                        }
+                        throw new Error(
+                            `security-guard: write blocked — "${file}" could not be inspected safely ` +
+                                `(${reason}), so an existing target cannot be overwritten. ` +
+                                `Use "edit" with oldString/newString for surgical changes.`,
+                        )
+                    }
                 }
             }
 
