@@ -106,6 +106,9 @@ opencode.json.local
 .kilo/*
 .security-guard/*
 .serena/*
+openspec/*
+.github/prompts/*
+.github/skills/*
 
 # Packages and temporary files
 *.tgz
