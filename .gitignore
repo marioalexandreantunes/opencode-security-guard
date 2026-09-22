@@ -104,8 +104,8 @@ secrets.yml
 opencode.json.local
 **/auth.json
 .kilo/*
-# security-guard (plugin local state)
 .security-guard/*
+.serena/*
 
 # Packages and temporary files
 *.tgz
