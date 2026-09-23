@@ -4,11 +4,12 @@
 // one-time capability probe so an unprivileged Windows host skips only the two
 // link scenarios instead of failing the file.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/sensitive-path-canonical-redact.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 import { fileLinkSkipReason, linkFile } from "./platform-fixtures.mts"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-sens-redact-log-")), "guard.log")

@@ -2,12 +2,13 @@
 // sanitizer, guard-log match, deterministic sibling recipe and the live
 // registry. Direct pins for the `config.ts` instance seam.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/config-context.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-ctx-log-")), "guard.log")
 

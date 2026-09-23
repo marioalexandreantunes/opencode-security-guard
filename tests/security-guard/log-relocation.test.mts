@@ -1,10 +1,11 @@
 // security-guard log relocation suite (settable log + dynamic sensitive path).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/log-relocation.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-reloc-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG

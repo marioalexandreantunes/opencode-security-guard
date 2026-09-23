@@ -1,6 +1,7 @@
 // Vault unit tests.
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { createVault } from "../../src/vault.ts"
 
 test("vault: store and lookup", () => {

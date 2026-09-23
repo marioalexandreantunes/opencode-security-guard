@@ -4,11 +4,12 @@
 // Each factory load uses its own explicit log: instance logs are never shared,
 // so every load below points `SECURITY_GUARD_LOG` at a fresh file first.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/halt.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOGDIR = mkdtempSync(join(tmpdir(), "sg-halt-log-"))
 let logCounter = 0

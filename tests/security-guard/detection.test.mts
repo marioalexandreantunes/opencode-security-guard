@@ -1,9 +1,10 @@
 // Detection regression suite for expand-secret-detection.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/detection.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { loadGuard } from "./extract.mts"
+import { test } from "node:test"
 import { createVault } from "../../src/vault.ts"
+import { loadGuard } from "./extract.mts"
 
 const g: Record<string, any> = await loadGuard()
 const { scan, MARKER, INDICATOR } = g

@@ -4,11 +4,12 @@
 // `... ?? LEVEL_RANK.info` -> `&&` mutant is equivalent, so a higher level is
 // required to distinguish it.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/config-log-level.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-level-")), "guard.log")
 process.env.SECURITY_GUARD_LOG_LEVEL = "warn"

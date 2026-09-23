@@ -1,10 +1,11 @@
 // security-guard rehydration destination policy (C2).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/rehydration-policy.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 import { linkDir } from "./platform-fixtures.mts"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-policy-log-")), "guard.log")

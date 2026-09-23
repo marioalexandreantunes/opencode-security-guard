@@ -1,11 +1,12 @@
 // security-guard characterization suite: pins observable behaviour that the
 // rest of the suite does not cover (block messages, patch targets, log events).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/characterization.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-char-log-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG

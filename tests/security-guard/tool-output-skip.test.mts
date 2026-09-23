@@ -5,12 +5,13 @@
 // corpus; one case runs the default scanner to catch decoupling from the real
 // pipeline.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/tool-output-skip.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { TOOL_SKIP, redactToolValue, neutraliseOutput } from "../../src/tool-output.ts"
-import { FAILED_PLACEHOLDER, type ScanFn } from "../../src/redact.ts"
+import { test } from "node:test"
 import { MARKER } from "../../src/config.ts"
+import { FAILED_PLACEHOLDER, type ScanFn } from "../../src/redact.ts"
 import type { Hit } from "../../src/rules.ts"
+import { neutraliseOutput, redactToolValue, TOOL_SKIP } from "../../src/tool-output.ts"
 
 const CANARY = "sg-canary-9f2c7a1e"
 const STUB_REDACTED = "[stub-redacted]"

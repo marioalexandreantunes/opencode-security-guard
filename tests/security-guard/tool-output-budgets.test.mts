@@ -8,11 +8,12 @@
 // The 64 / 20 000 / 4 * 1024 * 1024 constants are a pinned contract (design D3):
 // a deliberate budget change must update these tests in the same change.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/tool-output-budgets.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { redactToolValue } from "../../src/tool-output.ts"
+import { test } from "node:test"
 import type { ScanFn } from "../../src/redact.ts"
 import type { Hit } from "../../src/rules.ts"
+import { redactToolValue } from "../../src/tool-output.ts"
 
 const CANARY = "sg-canary-9f2c7a1e"
 const STUB_REDACTED = "[stub-redacted]"

@@ -2,11 +2,12 @@
 // QUIET=1 (toast suppression). Separate process because config.ts reads both at
 // module load.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/plugin-mode-quiet.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-mode-quiet-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG

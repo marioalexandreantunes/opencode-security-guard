@@ -2,11 +2,12 @@
 // Drives the REAL tool.execute.before handler with recorded args instead of
 // mirroring its decision sequence in the test.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/before-hook.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 // Temp log before importing config (read at module load).
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-before-log-")), "guard.log")

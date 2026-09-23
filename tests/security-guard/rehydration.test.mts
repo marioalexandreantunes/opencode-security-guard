@@ -1,11 +1,12 @@
 // security-guard rehydration integration tests.
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { SecurityGuard } from "../../src/index.ts"
+import { test } from "node:test"
 import { MARKER } from "../../src/config.ts"
+import { SecurityGuard } from "../../src/index.ts"
 
 // A real directory: `/tmp` does not exist on Windows, so the canonical
 // (fail-closed) destination check would block these ordinary writes.

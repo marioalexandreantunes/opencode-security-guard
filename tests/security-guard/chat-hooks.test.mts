@@ -1,10 +1,11 @@
 // security-guard chat hooks suite: system prompt + message parts/info redaction.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/chat-hooks.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { readFileSync, mkdtempSync } from "node:fs"
+import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 // Temp log set BEFORE importing config (read at module load) so this suite
 // never pollutes the production log.

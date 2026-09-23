@@ -2,8 +2,9 @@
 // With `SECURITY_GUARD_LOG=""` before import, `if (!log)` must keep every
 // ordinary path non-sensitive. Its own process; extras unset.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/paths-log-empty.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
+import { test } from "node:test"
 
 delete process.env.SECURITY_GUARD_EXTRA_PATHS
 process.env.SECURITY_GUARD_LOG = ""

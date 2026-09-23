@@ -1,8 +1,9 @@
 // Table-driven, per-category pinning of the shell patterns in src/bash.ts.
 // Rows were validated against the live regexes on 2026-09-10.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/bash-patterns.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
+import { test } from "node:test"
 
 const { MARKER } = await import("../../src/config.ts")
 const { ENV_DUMP, ENV_EXPORT, PS_ENV, ENV_ECHO, WRITE_VERB, API_WRITE, NET_VERB, IO_CMDS, MARKER_RE, sensitiveToken } =

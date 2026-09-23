@@ -2,11 +2,12 @@
 // structural-field preservation, alert delivery paths (controlled clock) and the
 // dispose summary.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/plugin-chat-dispose.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-chat-dispose-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG

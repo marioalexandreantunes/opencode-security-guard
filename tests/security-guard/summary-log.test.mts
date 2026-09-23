@@ -1,11 +1,12 @@
 // security-guard characterization: the dispose `summary` event reports blocks
 // and per-rule counters. Dedicated file because dispose ends the factory.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/summary-log.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-summary-log-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG

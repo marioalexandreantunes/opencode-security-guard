@@ -1,11 +1,12 @@
 // Marker identity contract: opaque per-process fingerprints and their effect on
 // redaction/rehydration. Synthetic values only.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/marker-identity.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-marker-log-")), "guard.log")
 

@@ -3,10 +3,11 @@
 // getter-only accessors become enumerable data properties, and the output key
 // is always set. No scanner runs here — the function only inspects types.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/tool-output-neutralise.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { TOOL_SKIP, neutraliseOutput } from "../../src/tool-output.ts"
+import { test } from "node:test"
 import { FAILED_PLACEHOLDER } from "../../src/redact.ts"
+import { neutraliseOutput, TOOL_SKIP } from "../../src/tool-output.ts"
 
 test("neutralise: values collapse by type and primitives survive", () => {
     const output: Record<string, unknown> = {

@@ -1,10 +1,11 @@
 // Unit tests for internal branches not exercised through the plugin hooks.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/unit-branches.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, parse, resolve } from "node:path"
+import { test } from "node:test"
 
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-unit-")), "guard.log")
 

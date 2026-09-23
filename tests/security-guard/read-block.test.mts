@@ -1,11 +1,12 @@
 // security-guard characterization: MODE=block blocks sensitive reads by name.
 // MODE is read at config load, so this needs its own process/file.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/read-block.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 process.env.SECURITY_GUARD_MODE = "block"
 

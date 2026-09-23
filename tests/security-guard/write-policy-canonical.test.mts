@@ -3,11 +3,12 @@
 // files resolve through the nearest existing ancestor, and uninspectable
 // destinations fail closed. Synthetic temp fixtures only.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/write-policy-canonical.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
+import { test } from "node:test"
 import { fileLinkSkipReason, linkDir, linkFile } from "./platform-fixtures.mts"
 
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-canon-log-")), "guard.log")

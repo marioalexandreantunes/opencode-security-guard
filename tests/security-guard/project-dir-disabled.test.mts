@@ -1,11 +1,12 @@
 // security-guard hermeticity suite: PROJECT_DIR=0 must leave no project state,
 // while an explicit SECURITY_GUARD_BLACKLIST still loads (team-blacklist).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/project-dir-disabled.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const ROOT = mkdtempSync(join(tmpdir(), "sg-projoff-"))
 const LOG_TMP = join(mkdtempSync(join(tmpdir(), "sg-projoff-log-")), "guard.log")

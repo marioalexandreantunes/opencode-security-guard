@@ -3,8 +3,9 @@
 // be set and restored in-process. Each test verifies the observable eviction
 // boundary rather than the internal value.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/vault-limit.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
+import { test } from "node:test"
 import { createVault, type Vault } from "../../src/vault.ts"
 
 const DEFAULT_MAX = 1000

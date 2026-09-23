@@ -6,27 +6,28 @@
 //
 // This file deliberately does NOT match the `tests/**/*.test.mts` glob, so
 // `npm test` (Stryker's command runner) and the c8 coverage gate are unaffected.
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { Buffer } from "node:buffer"
 import { execFile } from "node:child_process"
-import { readFileSync, readdirSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { mkdtemp, writeFile } from "node:fs/promises"
-import { join } from "node:path"
 import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { test } from "node:test"
 import fc from "fast-check"
 import { MARKER } from "../../src/config.ts"
 import {
+    createScanCache,
+    entropy,
+    INDICATOR,
+    looksBare,
+    looksReal,
+    looksSecret,
+    mixedBlob,
+    RULES,
     scan,
     scanDeep,
-    RULES,
-    INDICATOR,
-    entropy,
-    looksReal,
-    looksBare,
-    mixedBlob,
-    looksSecret,
-    createScanCache,
 } from "../../src/rules.ts"
 
 // ── seed / run configuration ──────────────────────────────────────────────

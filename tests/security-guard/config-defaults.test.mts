@@ -2,11 +2,12 @@
 // (strengthen-config-mutation-tests). Clean env: config.ts reads env once at
 // import, and this file runs in its own process.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/config-defaults.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 delete process.env.SECURITY_GUARD_LOG
 delete process.env.SECURITY_GUARD_MODE

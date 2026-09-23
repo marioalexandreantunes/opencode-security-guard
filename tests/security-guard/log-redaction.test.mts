@@ -1,9 +1,10 @@
 // The log must never contain a secret value — only markers/rules/hashes.
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { readFileSync, mkdtempSync } from "node:fs"
+import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const SECRET = "Xy9kQ2mN7vR4tW8zB5c"
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-log-")), "guard.log")

@@ -3,11 +3,12 @@
 // stable coded diagnostic — never an uncaught exception and never a false
 // "no markers" pass. Synthetic values only.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/marker-inspection.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-inspect-log-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG

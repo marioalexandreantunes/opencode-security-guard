@@ -3,11 +3,12 @@
 // absolute and normalized, an unset base degrades to the absolute, and the
 // policy is purely lexical (no filesystem access).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/log-path.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-log-path-")), "guard.log")
 

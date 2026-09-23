@@ -4,10 +4,11 @@
 // must-catch rows are redacted with the expected rule and vault payload;
 // must-not-catch rows pass through untouched. Run with the rest of the suite:
 //   npm test
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { test } from "node:test"
 import { loadGuard } from "./extract.mts"
 
 const g: Record<string, any> = await loadGuard()

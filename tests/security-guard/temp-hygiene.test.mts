@@ -3,13 +3,14 @@
 // allocation, that the stale sweep is age-safe and stamp-throttled, and that
 // the entry points initialize the helper before loading anything else.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/temp-hygiene.test.mts
-import { after, test } from "node:test"
+
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
 import { once } from "node:events"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
+import { after, test } from "node:test"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { SWEEP_STAMP, sweepStaleRunRoots } from "../../scripts/test-tmp.mjs"
 

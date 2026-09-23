@@ -1,10 +1,11 @@
 // security-guard regression suite (scanner + shell unit diagnostics).
 // Bash hook behaviour is covered by before-hook.test.mts against the real hook.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/regression.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
-import { loadGuard, loadFactory } from "./extract.mts"
+import { test } from "node:test"
 import { scan } from "../../src/rules.ts"
+import { loadFactory, loadGuard } from "./extract.mts"
 
 const g: Record<string, any> = await loadGuard()
 const { scanDeep, sensitiveToken, isSensitivePath, ENV_DUMP, PS_ENV, ENV_ECHO, ENV_EXPORT, WRITE_VERB, MARKER } = g

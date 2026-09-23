@@ -3,11 +3,12 @@
 // policies, blacklist loggers and project-directory loggers. Synthetic temp
 // fixtures only.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/instance-isolation.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 import { linkDir } from "./platform-fixtures.mts"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-iso-log-")), "guard.log")
