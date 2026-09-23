@@ -1,10 +1,12 @@
 // security-guard blacklist suite (team-blacklist).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/blacklist.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-blacklist-log-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG
@@ -84,17 +86,53 @@ test("blacklist: comments and blank lines produce no terms", () => {
     assert.equal(bl.apply(scan("nothing to see")).text, "nothing to see")
 })
 
-test("blacklist: a re: line compiles as a case-insensitive regex", () => {
-    const path = list("re:acme-[0-9]{4}\n")
+test("blacklist: a re: line is ignored and remaining literal terms load", () => {
+    const path = list("re:acme-[0-9]{4}\nKeepMe\n")
     const bl = createBlacklist({ path })
     assert.equal(bl.size, 1)
-    const result = bl.apply(scan("ref ACME-1234 ok"))
-    assert.equal(result.text, `ref ${marker("ACME-1234")} ok`)
-    assert.equal(result.hits[0].fp, fp("ACME-1234"))
-    assert.equal(result.hits[0].value, "ACME-1234")
+    const result = bl.apply(scan("ref ACME-1234 keepme"))
+    assert.equal(result.text, `ref ACME-1234 ${marker("keepme")}`)
+    const log = logText()
+    assert.match(log, /"event":"blacklist.invalid"/)
+    assert.match(log, /"error":"unsupported-pattern"/)
+    assert.ok(!log.includes("acme-[0-9]{4}"), "the unsupported pattern leaked into the log")
 })
 
-test("blacklist: an invalid re: line is skipped and logged without the pattern", () => {
+test("blacklist: an adversarial re: line is ignored without blocking", () => {
+    const child = spawnSync(
+        process.execPath,
+        [
+            "--experimental-strip-types",
+            "--input-type=module",
+            "-e",
+            `
+                import { mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+                import { tmpdir } from "node:os"
+                import { join } from "node:path"
+                process.env.SECURITY_GUARD_PROJECT_DIR = "0"
+                const log = join(mkdtempSync(join(tmpdir(), "sg-redos-log-")), "guard.log")
+                process.env.SECURITY_GUARD_LOG = log
+                const { createBlacklist } = await import("./src/blacklist.ts")
+                const path = join(mkdtempSync(join(tmpdir(), "sg-redos-")), "blacklist")
+                const pattern = "re:^(a+)+$"
+                writeFileSync(path, pattern + "\\nKeepMe\\n", "utf8")
+                const blacklist = createBlacklist({ path })
+                const input = "a".repeat(10000) + "!"
+                const result = blacklist.apply({ text: input, hits: [] })
+                const logged = readFileSync(log, "utf8")
+                if (blacklist.size !== 1 || result.text !== input || logged.includes(pattern)) {
+                    console.error("blacklist regression failed")
+                    process.exitCode = 1
+                }
+            `,
+        ],
+        { cwd: process.cwd(), env: { ...process.env }, encoding: "utf8", timeout: 5000 },
+    )
+    assert.ok(!child.error, "blacklist child timed out or failed to spawn")
+    assert.equal(child.status, 0, "blacklist regression failed")
+})
+
+test("blacklist: a backtracking-looking re: line is skipped and logged without the pattern", () => {
     const path = list("re:(unclosed\nKeepMe\n")
     const bl = createBlacklist({ path })
     assert.equal(bl.size, 1, "the valid term must still load")
@@ -103,18 +141,18 @@ test("blacklist: an invalid re: line is skipped and logged without the pattern",
     assert.match(log, /"level":"warn"/)
     assert.match(log, /"event":"blacklist.invalid"/)
     assert.match(log, /"line":1/)
-    assert.match(log, /"error":"invalid-regular-expression"/)
+    assert.match(log, /"error":"unsupported-pattern"/)
     assert.ok(!log.includes("unclosed"), "the re: pattern leaked into the log")
 })
 
-test("blacklist: an empty re: pattern is skipped and logged", () => {
+test("blacklist: empty re: lines are skipped and logged as unsupported", () => {
     const path = list("re:\nre:   \nKeepMe\n")
     const bl = createBlacklist({ path })
     assert.equal(bl.size, 1)
     const log = logText()
     assert.match(log, /"level":"warn"/)
     assert.match(log, /"event":"blacklist.invalid"/)
-    assert.match(log, /"error":"empty-pattern"/)
+    assert.match(log, /"error":"unsupported-pattern"/)
     assert.match(log, /"line":1/)
     assert.match(log, /"line":2/)
 })
@@ -125,10 +163,12 @@ test("blacklist: a scan with no match is returned by identity", () => {
     assert.equal(bl.apply(input), input)
 })
 
-test("blacklist: whitespace around a re: pattern is trimmed", () => {
+test("blacklist: whitespace around an unsupported re: line is trimmed", () => {
     const bl = createBlacklist({ path: list("re:  acme-[0-9]{4}  \n") })
-    assert.equal(bl.size, 1)
-    assert.equal(bl.apply(scan("ACME-0042")).text, marker("ACME-0042"))
+    assert.equal(bl.size, 0)
+    assert.equal(bl.apply(scan("ACME-0042")).text, "ACME-0042")
+    assert.match(logText(), /"error":"unsupported-pattern"/)
+    assert.ok(!logText().includes("acme-[0-9]{4}"), "the unsupported pattern leaked into the log")
 })
 
 test("blacklist: a missing file yields an empty list without errors", () => {
@@ -181,17 +221,16 @@ test("blacklist: the marker hash is derived from the observed casing", () => {
     }
 })
 
-test("blacklist: distinct values matched by one re: entry get distinct markers", () => {
-    const bl = createBlacklist({ path: list("re:acme-[0-9]{4}\n") })
-    const result = bl.apply(scan("ref acme-2025 and ACME-2026 ok"))
-    assert.equal(result.text, `ref ${marker("acme-2025")} and ${marker("ACME-2026")} ok`)
-    assert.notEqual(marker("acme-2025"), marker("ACME-2026"))
-    const values = result.hits.map((h: { value: string }) => h.value).sort()
-    assert.deepEqual(values, ["ACME-2026", "acme-2025"])
+test("blacklist: literal metacharacters do not become regex syntax", () => {
+    const bl = createBlacklist({ path: list("acme-[0-9]{4}\n") })
+    const result = bl.apply(scan("ref acme-[0-9]{4} and ACME-2026 ok"))
+    assert.equal(result.text, `ref ${marker("acme-[0-9]{4}")} and ACME-2026 ok`)
+    assert.equal(result.hits.length, 1)
+    assert.equal(result.hits[0].value, "acme-[0-9]{4}")
 })
 
-test("blacklist: repeated occurrences of one observed value reuse its marker", () => {
-    const bl = createBlacklist({ path: list("re:acme-[0-9]{4}\n") })
+test("blacklist: repeated occurrences of one literal reuse its marker", () => {
+    const bl = createBlacklist({ path: list("Acme-2025\n") })
     const result = bl.apply(scan("acme-2025 then acme-2025 again"))
     assert.equal(result.text, `${marker("acme-2025")} then ${marker("acme-2025")} again`)
     assert.equal(result.hits.length, 2)
@@ -209,8 +248,9 @@ test("blacklist: terms never match inside an existing marker", () => {
     assert.deepEqual(result.hits, [])
 })
 
-test("blacklist: empty matches are ignored", () => {
+test("blacklist: unsupported re: lines cannot create empty matches", () => {
     const bl = createBlacklist({ path: list("re:x*\n") })
+    assert.equal(bl.size, 0)
     const result = bl.apply(scan("abc"))
     assert.equal(result.text, "abc")
     assert.deepEqual(result.hits, [])

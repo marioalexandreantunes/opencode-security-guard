@@ -34,6 +34,8 @@ In scope:
 - a marker write-back that corrupts a file or writes an unresolved placeholder;
 - a denial of service caused by the guard (unbounded memory or traversal, crash on untrusted input).
 
+Configuration note: the guard does not execute arbitrary regular expressions from configuration. `re:` blacklist lines are ignored with a generic diagnostic, and `SECURITY_GUARD_EXTRA_PATHS` values are escaped literal terms. Existing configurations that rely on regex syntax must migrate to literal terms.
+
 Out of scope (documented limitations, see [README.md](README.md#known-limitations)):
 
 - secrets below the detection thresholds (short, low-entropy, unknown formats);

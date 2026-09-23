@@ -43,15 +43,15 @@ const EXAMPLE =
     "# matched case-insensitively as substrings and redacted before inference.\n" +
     "#\n" +
     "# Lines starting with # are comments; blank lines are ignored.\n" +
-    '# A line prefixed with "re:" is compiled as a case-insensitive regular\n' +
-    "# expression (an invalid one is skipped and logged). Any other term is\n" +
-    "# literal: regex metacharacters (e.g. *) are not wildcards.\n" +
+    "# Every other term is matched case-insensitively as a literal substring.\n" +
+    "# Regex metacharacters (e.g. *) are literal characters; regex syntax is\n" +
+    "# not supported. Lines prefixed with re: are ignored and logged.\n" +
     "#\n" +
     "# Examples:\n" +
     "# AcmeProjectCodename\n" +
     "# internal.acme.example\n" +
-    "# re:acme-[0-9]{4}\n" +
-    "# re:apikey_[0-9a-f]+(?:_[0-9a-f]+)*\n"
+    "# acme-[0-9]{4}\n" +
+    "# apikey_[0-9a-f]+\n"
 
 /** Logger injected by the owning instance; standalone use keeps the globals. */
 export interface BootstrapLog {

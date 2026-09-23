@@ -180,7 +180,6 @@ export type LogPayload = {
     "blacklist.loaded": { path: string; count: number; version: number }
     "blacklist.reloaded": { path: string; count: number; version: number; error?: string }
     "blacklist.invalid": { path: string; line: number; error: string }
-    "config.invalid-path": { index: number; error: string }
     "redaction.failed": { at?: string; index?: number; tool?: string; error?: string }
     rehydrated: { tool: string; hashes: string[] }
     "rehydrated.external": { tool: string; files: string[] }

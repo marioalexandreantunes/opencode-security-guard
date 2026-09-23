@@ -129,7 +129,7 @@ Everything is optional, via environment variables:
 | `SECURITY_GUARD_BLACKLIST_TTL_MS` | Blacklist reload poll interval, ms (`0` = every hook, `-1` = never) | `2000` |
 | `SECURITY_GUARD_LOG_LEVEL` | Minimum level written: `debug`, `info`, `warn`, `error` | `info` |
 | `SECURITY_GUARD_MODE` | `redact` (redact) or `block` (block reads) | `redact` |
-| `SECURITY_GUARD_EXTRA_PATHS` | Extra sensitive path regexes, `;`-separated | none |
+| `SECURITY_GUARD_EXTRA_PATHS` | Extra sensitive path literal terms, `;`-separated | none |
 | `SECURITY_GUARD_QUIET` | `1` disables toasts (logging continues) | none |
 | `SECURITY_GUARD_REHYDRATE` | `0` disables rehydration in `write`/`edit` | active |
 | `SECURITY_GUARD_REHYDRATE_BASH` | `1` enables rehydration in `bash` (anti-exfil gate) | disabled |
@@ -189,19 +189,19 @@ HALTED: pseudo-key probe had no tool hook to block it
 `<projectRoot>/.security-guard/blacklist` is line-based text. Edit it in your editor; the plugin picks up changes by mtime (poll `SECURITY_GUARD_BLACKLIST_TTL_MS`, default 2000 ms; `0` = every hook, `-1` = never) and invalidates the scan cache on reload.
 
 - one term per line, matched case-insensitively as a substring;
-- plain terms are literal: regex metacharacters (e.g. `*`) are not wildcards. Use a `re:` line for patterns;
+- every term is matched case-insensitively as a literal substring; regex metacharacters (e.g. `*`) are literal characters, not wildcards;
 - blank lines and `#` comments are ignored;
-- a `re:` prefix compiles a case-insensitive regular expression; an invalid one is skipped and logged (`blacklist.invalid`) without aborting the load.
+- a line beginning with `re:` is unsupported, ignored and logged as `blacklist.invalid` with `error: "unsupported-pattern"`; the pattern is never logged.
 
 ```
 # .security-guard/blacklist
 AcmeProjectCodename
 internal.acme.example
-re:acme-[0-9]{4}
-re:apikey_[0-9a-f]+(?:_[0-9a-f]+)*
+acme-2025
+apikey_demo
 ```
 
-Matches are redacted at the inference boundary exactly like secrets (`chat.message`, the history transform, the system prompt and tool output), replaced by `<MARKER:blacklist:hash>` whose hash derives from the exact observed match (including its casing), and rehydrated through the vault like a secret marker. The declared literal casing or `re:` pattern is matching configuration only and is never written back. The blacklist is **not** applied to `bash` commands or to on-disk write-target inspection (inference boundary only). An explicit `SECURITY_GUARD_BLACKLIST` wins over the project file and loads even with `SECURITY_GUARD_PROJECT_DIR=0`.
+Matches are redacted at the inference boundary exactly like secrets (`chat.message`, the history transform, the system prompt and tool output), replaced by `<MARKER:blacklist:hash>` whose hash derives from the exact observed match (including its casing), and rehydrated through the vault like a secret marker. The declared literal casing is matching configuration only and is never written back. Existing `re:` lines are ignored; migrate them to one or more literal terms. The blacklist is **not** applied to `bash` commands or to on-disk write-target inspection (inference boundary only). An explicit `SECURITY_GUARD_BLACKLIST` wins over the project file and loads even with `SECURITY_GUARD_PROJECT_DIR=0`.
 
 ## Threat model
 
@@ -221,7 +221,7 @@ The guard protects the inference boundary: it stops secrets from being read, ech
 - Rehydration writes secrets to disk by design. It is restricted to the canonical worktree unless `SECURITY_GUARD_REHYDRATE_EXTERNAL=1`; `SECURITY_GUARD_REHYDRATE_BASH=1` also permits shell destinations outside that policy.
 - `experimental.chat.system.transform` relies on in-place mutation supported by the JS runtime; re-check after runtime upgrades. `messages.transform` remains the effective fallback boundary.
 - The scan cache avoids repeated per-string work but still traverses the full history each turn. Logs remain project-local, sanitized and isolated per project; `SECURITY_GUARD_LOG` can override the default location.
-- The blacklist is plaintext, inference-boundary only and rehydratable like secrets. Matching is case-insensitive substring matching, while user-owned `re:` patterns have no ReDoS protection.
+- The blacklist is plaintext, inference-boundary only and rehydratable like secrets. Matching is case-insensitive literal substring matching; `re:` lines are ignored, so configurable patterns cannot trigger ReDoS.
 - `.security-guard/**` is sensitive, so the agent cannot manage the team list; edit it manually using `blacklist.example` as a guide.
 
 ## Rehydration (vault + placeholders)
@@ -279,7 +279,7 @@ The result is deliberate: local development remains useful, including writing co
 The guard's own diagnostics are designed not to become a leak channel (log schema revision `12`):
 
 - The log (`<projectRoot>/.security-guard/security-guard.log`) never contains secret values, blacklist terms, raw `SECURITY_GUARD_EXTRA_PATHS` patterns, or raw shell command text. Blocked `bash` events record the event name, tool, session/call identifiers, rule patterns and a project-root-relative `file` only.
-- Invalid `SECURITY_GUARD_EXTRA_PATHS` entries are reported as `config.invalid-path` with `{ index, error: "invalid-regular-expression" }`. The log never includes the pattern or engine message.
+- `SECURITY_GUARD_EXTRA_PATHS` values are trimmed, escaped literal terms matched case-insensitively as substrings, and never logged as raw configuration.
 - Bootstrap failures are reported as `project-dir.failed` with a stable `{ step, error }`. The `error` value is `mkdir-failed`, `write-failed` or `io-error`; the log never includes the platform message or an absolute path.
 - Write arguments that cannot be inspected for markers are reported as `blocked.marker-inspection` with `{ tool, error: "marker-inspection-failed" }`. The log never includes argument content, marker text or engine messages.
 - Full writes with rehydration disabled are reported as `blocked.write.fullrewrite` with `{ tool, file, reason }`, where `reason` is `contains-secrets`, `not-file`, `too-large`, `metadata-failed`, `dangling-link` or `read-failed`. Missing and verified-clean targets remain allowed; unverifiable existing targets are blocked. Raw filesystem errors are never logged or shown.

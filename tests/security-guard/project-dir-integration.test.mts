@@ -1,10 +1,11 @@
 // security-guard integration suite for the project directory (bootstrap ON).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/project-dir-integration.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 // Hermetic by construction: temp project root, temp log. The bootstrap must be
 // ON, so the setup-env kill-switch is removed before the factory runs and the
@@ -27,10 +28,11 @@ const hooks = await SecurityGuard({ client: {}, directory: ROOT, worktree: "/" }
 const DIR = join(ROOT, ".security-guard")
 const BLACKLIST = join(DIR, "blacklist")
 const TERM = "AcmeC0dename"
+const SECOND_TERM = "Acme-2025"
 const PATTERN = "acme-[0-9]{4}"
 // The file is written after bootstrap (the directory must exist first); the TTL
 // of 0 makes the next hook pick the terms up and clear the scan cache.
-writeFileSync(BLACKLIST, `# team terms\n${TERM}\nre:${PATTERN}\n`, "utf8")
+writeFileSync(BLACKLIST, `# team terms\n${TERM}\n${SECOND_TERM}\nre:${PATTERN}\n`, "utf8")
 
 const mk = (term: string): string => `<${MARKER}:blacklist:${fp(term)}>`
 const instanceLog = (): string => {
@@ -54,9 +56,9 @@ test("integration: a term in the prompt is redacted with the observed marker", a
     await hooks["chat.message"]({}, output)
     const text = String(output.parts[0].text)
     assert.ok(text.includes(mk(TERM)), "literal term not redacted")
-    assert.ok(text.includes(mk("acme-1234")), "re: term not redacted")
+    assert.ok(text.includes("acme-1234"), "unsupported re: term must remain literal input")
     assert.ok(!text.includes(TERM), "the raw term leaked")
-    assert.ok(!text.includes("acme-1234"), "the raw regex match leaked")
+    assert.ok(!text.includes(mk("acme-1234")), "unsupported re: term must not be redacted")
 })
 
 test("integration: a different casing produces the observed marker", async () => {
@@ -98,9 +100,9 @@ test("integration: a known blacklist marker rehydrates on write", async () => {
     assert.equal(args.content, `value=${TERM}`)
 })
 
-test("integration: two regex values rehydrate independently on write", async () => {
-    const first = "acme-2025"
-    const second = "ACME-2026"
+test("integration: two literal values rehydrate independently on write", async () => {
+    const first = SECOND_TERM
+    const second = TERM
     const output: Record<string, any> = { output: `codes ${first} and ${second}`, metadata: {} }
     await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s", callID: "c" }, output)
     const text = String(output.output)

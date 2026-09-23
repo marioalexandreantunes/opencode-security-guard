@@ -1,10 +1,11 @@
 // security-guard project-directory bootstrap suite (project-directory).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/project-dir.test.mts
-import { beforeEach, test } from "node:test"
+
 import assert from "node:assert/strict"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { beforeEach, test } from "node:test"
 
 const SAFE_LOG = join(mkdtempSync(join(tmpdir(), "sg-projdir-log-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = SAFE_LOG
@@ -28,15 +29,15 @@ const EXAMPLE_TEXT =
     "# matched case-insensitively as substrings and redacted before inference.\n" +
     "#\n" +
     "# Lines starting with # are comments; blank lines are ignored.\n" +
-    '# A line prefixed with "re:" is compiled as a case-insensitive regular\n' +
-    "# expression (an invalid one is skipped and logged). Any other term is\n" +
-    "# literal: regex metacharacters (e.g. *) are not wildcards.\n" +
+    "# Every other term is matched case-insensitively as a literal substring.\n" +
+    "# Regex metacharacters (e.g. *) are literal characters; regex syntax is\n" +
+    "# not supported. Lines prefixed with re: are ignored and logged.\n" +
     "#\n" +
     "# Examples:\n" +
     "# AcmeProjectCodename\n" +
     "# internal.acme.example\n" +
-    "# re:acme-[0-9]{4}\n" +
-    "# re:apikey_[0-9a-f]+(?:_[0-9a-f]+)*\n"
+    "# acme-[0-9]{4}\n" +
+    "# apikey_[0-9a-f]+\n"
 const HALT_EXAMPLE_TEXT =
     "plugin disabled\n" +
     "\n" +
@@ -89,7 +90,7 @@ test("project-dir: creates the directory and the blacklist example", () => {
     const example = readFileSync(join(dir, "blacklist.example"), "utf8")
     assert.equal(example, EXAMPLE_TEXT, "the example content must be pinned exactly")
     assert.match(example, /^#/m, "the example must document comments")
-    assert.match(example, /re:/, "the example must document the re: prefix")
+    assert.doesNotMatch(example, /^# re:/m, "the example must not include regex entries")
     assert.equal(result.haltExample, true)
     const halt = readFileSync(join(dir, "halt.example"), "utf8")
     assert.equal(halt, HALT_EXAMPLE_TEXT, "the halt example content must be pinned exactly")

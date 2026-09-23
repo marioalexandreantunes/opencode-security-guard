@@ -1,12 +1,13 @@
 // security-guard scan-cache suite (memoize-history-scan).
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/scan-cache.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { loadGuard, loadFactory } from "./extract.mts"
+import { test } from "node:test"
 import { createBlacklist } from "../../src/blacklist.ts"
+import { loadFactory, loadGuard } from "./extract.mts"
 
 const g: Record<string, any> = await loadGuard()
 const { scan, createScanCache, SCAN_CACHE_MAX, MARKER } = g
@@ -66,11 +67,11 @@ test("scan-cache: cached and uncached results match", () => {
 
 test("scan-cache: cached and uncached combined results match", () => {
     const path = join(mkdtempSync(join(tmpdir(), "sg-scan-combined-")), "blacklist")
-    writeFileSync(path, "ZirconTerm\nre:zircon-[0-9]{4}\n", "utf8")
+    writeFileSync(path, "ZirconTerm\nzircon-[0-9]{4}\n", "utf8")
     const blacklist = createBlacklist({ path, ttlMs: -1 })
     const combined = (t: string) => blacklist.apply(scan(t))
     const cache = createScanCache(100, combined)
-    const inputs = [CLEAN, SECRET, "zircon-0042", "ZirconTerm", mk("jwt"), ""]
+    const inputs = [CLEAN, SECRET, "zircon-0042", "zircon-[0-9]{4}", "ZirconTerm", mk("jwt"), ""]
     for (const s of inputs) {
         const direct = combined(s)
         const cached = cache.scan(s)

@@ -1,6 +1,6 @@
 /**
  * blacklist.ts — team blacklist: a line-based denylist (literals, `#` comments,
- * `re:` patterns) matched case-insensitively at the inference boundary, with
+ * unsupported `re:` lines) matched case-insensitively at the inference boundary, with
  * mtime hot-reload and fail-open behavior. Internal deps: `config.ts` (fp,
  * writeLog, MARKER) and the `Hit`/`Scan` types from `rules.ts`.
  */
@@ -54,8 +54,8 @@ function ttlFromEnv(): number {
 
 /**
  * Parses the file into compiled matchers. Blank lines and `#` comments are
- * skipped; `re:` lines compile as case-insensitive regexes (an invalid one is
- * skipped and logged without the pattern); every other line is a literal.
+ * skipped; `re:` lines are unsupported, skipped and logged without the pattern;
+ * every other line is a case-insensitive literal.
  */
 function parse(content: string, path: string, log: BlacklistLog): RegExp[] {
     const compiled: RegExp[] = []
@@ -64,25 +64,11 @@ function parse(content: string, path: string, log: BlacklistLog): RegExp[] {
         const line = (lines[index] ?? "").trim()
         if (!line || line.startsWith("#")) continue
         if (line.startsWith("re:")) {
-            const pattern = line.slice(3).trim()
-            if (!pattern) {
-                log.writeLog("warn", "blacklist.invalid", {
-                    path: log.logPath(path),
-                    line: index + 1,
-                    error: "empty-pattern",
-                })
-                continue
-            }
-            try {
-                compiled.push(new RegExp(pattern, "gi"))
-            } catch {
-                // Never log the pattern itself: it is blacklist content.
-                log.writeLog("warn", "blacklist.invalid", {
-                    path: log.logPath(path),
-                    line: index + 1,
-                    error: "invalid-regular-expression",
-                })
-            }
+            log.writeLog("warn", "blacklist.invalid", {
+                path: log.logPath(path),
+                line: index + 1,
+                error: "unsupported-pattern",
+            })
             continue
         }
         compiled.push(new RegExp(escapeRe(line), "gi"))

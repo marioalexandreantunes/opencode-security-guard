@@ -5,7 +5,7 @@
  * sensitive project-local state.
  */
 import * as fsx from "node:fs"
-import { isGuardLogPathFor, LOG_FILE, norm, writeLog } from "./config.ts"
+import { isGuardLogPathFor, LOG_FILE, norm } from "./config.ts"
 import { scan } from "./rules.ts"
 import { canonicalizeRoot, resolveCanonicalTarget } from "./write-policy.ts"
 
@@ -43,24 +43,8 @@ export const SENSITIVE_PATHS: RegExp[] = [
         .split(";")
         .map((part) => part.trim())
         .filter(Boolean)
-        .map((pattern, index) => compileExtraPath(pattern, index))
-        .filter((re): re is RegExp => re !== null),
+        .map((pattern) => new RegExp(escapeRe(pattern), "i")),
 ]
-
-/**
- * Compiles a user-supplied path regex. An invalid one is skipped and logged
- * with its position only — never the pattern or the engine message, both of
- * which would leak the configured term. `index` counts the non-empty, trimmed
- * candidates, so empty `;;` segments do not shift it.
- */
-function compileExtraPath(pattern: string, index: number): RegExp | null {
-    try {
-        return new RegExp(pattern, "i")
-    } catch {
-        writeLog("warn", "config.invalid-path", { index, error: "invalid-regular-expression" })
-        return null
-    }
-}
 
 /** True when `n` is the active guard log or its `.1` rotation (case-insensitive). */
 function isGuardLogPath(n: string): boolean {

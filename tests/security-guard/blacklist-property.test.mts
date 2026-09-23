@@ -1,11 +1,12 @@
 // security-guard blacklist property suite — fuzz/property backlog P0.1.
 // Deterministic PRNG, no external dependency.
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/blacklist-property.test.mts
-import { test } from "node:test"
+
 import assert from "node:assert/strict"
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { test } from "node:test"
 
 process.env.SECURITY_GUARD_LOG = join(mkdtempSync(join(tmpdir(), "sg-blprop-log-")), "guard.log")
 
@@ -71,7 +72,7 @@ test("property: terms never match inside an existing marker", () => {
 test("property: ordinary text never produces a hit", () => {
     const r = rng(7)
     const words = ["alpha", "beta", "gamma", "report", "deploy", "service", "config", "build", "release"]
-    const bl = createBlacklist({ path: writeList("ZuluTerm\nre:[0-9]{3}-[0-9]{3}\n") })
+    const bl = createBlacklist({ path: writeList("ZuluTerm\n[0-9]{3}-[0-9]{3}\n") })
     for (let i = 0; i < 200; i++) {
         const length = 1 + Math.floor(r() * 8)
         const text = Array.from({ length }, () => pick(r, words)).join(" ")

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** each live project instance now owns its log destination. If multiple projects use the same explicit `SECURITY_GUARD_LOG`, later projects receive isolated sibling files.
 - Marker identities are opaque per process and cannot be linked across runs.
 - Diagnostics and log records no longer expose configuration content, raw shell commands, engine messages or personal paths where possible.
+- **Breaking:** Configurable blacklist and extra sensitive path settings are literal-only; `re:` lines are ignored and arbitrary regex execution is removed.
 - Log records use stable payloads and lowercase log levels.
 
 ### Fixed
