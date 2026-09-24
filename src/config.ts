@@ -398,29 +398,29 @@ export function uniqueSiblingLogPath(base: string): string {
     return p.join(dir, `${stem}.${token}${ext}`)
 }
 
-/** Live instance registry: resolved root → captured context (discovery seam). */
+/** Live instance registry: canonical identity key → captured context (discovery seam). */
 const projectContexts = new Map<string, ProjectContext>()
 
-/** Registers an instance context (idempotent per root). */
-export function registerProjectContext(ctx: ProjectContext): void {
-    projectContexts.set(ctx.root, ctx)
+/** Registers a context under its captured project identity key. */
+export function registerProjectContext(identityKey: string, ctx: ProjectContext): void {
+    projectContexts.set(identityKey, ctx)
 }
 
-/** Looks up the live context for a resolved root, if any. */
-export function getProjectContext(root: string): ProjectContext | undefined {
-    return projectContexts.get(root)
+/** Looks up the live context for an identity key, if any. */
+export function getProjectContext(identityKey: string): ProjectContext | undefined {
+    return projectContexts.get(identityKey)
 }
 
-/** Releases a root's context (dispose). */
-export function releaseProjectContext(root: string): void {
-    projectContexts.delete(root)
+/** Releases an identity key's context (dispose). */
+export function releaseProjectContext(identityKey: string): void {
+    projectContexts.delete(identityKey)
 }
 
-/** True when another live root already owns `candidate` as its log file. */
-export function isLogPathOwnedByOther(root: string, candidate: string): boolean {
+/** True when another live identity already owns `candidate` as its log file. */
+export function isLogPathOwnedByOther(identityKey: string, candidate: string): boolean {
     const want = norm(p.resolve(candidate))
-    for (const [other, ctx] of projectContexts) {
-        if (other !== root && norm(p.resolve(ctx.logFile)) === want) return true
+    for (const [otherIdentityKey, ctx] of projectContexts) {
+        if (otherIdentityKey !== identityKey && norm(p.resolve(ctx.logFile)) === want) return true
     }
     return false
 }

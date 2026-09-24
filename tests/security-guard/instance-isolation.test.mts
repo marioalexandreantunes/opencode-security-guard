@@ -17,7 +17,16 @@ process.env.SECURITY_GUARD_PROJECT_DIR = "1"
 process.env.SECURITY_GUARD_BLACKLIST_TTL_MS = "0"
 
 const { SecurityGuard } = await import("../../src/index.ts")
-const { MARKER, getProjectContext, siblingLogPath, norm } = await import("../../src/config.ts")
+const {
+    MARKER,
+    createProjectContext,
+    getProjectContext,
+    registerProjectContext,
+    releaseProjectContext,
+    siblingLogPath,
+    norm,
+} = await import("../../src/config.ts")
+const identityForRoot = (root: string): string => realpathSync.native(root)
 
 const SECRET = "Xy9kQ2mN7vR4tW8zB5c"
 const CRED = `api_key=${SECRET}`
@@ -49,8 +58,16 @@ const sessions = (file: string, event: string): unknown[] =>
 const count = (file: string, event: string): number => readLog(file).filter((e) => e.event === event).length
 
 test("isolation: each root captures its own log destination", () => {
-    assert.equal(getProjectContext(rootA)?.logFile, LOG, "the first root keeps the exact explicit path")
-    assert.equal(getProjectContext(rootB)?.logFile, sibB, "the second root receives the deterministic sibling")
+    assert.equal(
+        getProjectContext(identityForRoot(rootA))?.logFile,
+        LOG,
+        "the first root keeps the exact explicit path",
+    )
+    assert.equal(
+        getProjectContext(identityForRoot(rootB))?.logFile,
+        sibB,
+        "the second root receives the deterministic sibling",
+    )
     assert.notEqual(LOG, sibB)
 })
 
@@ -135,10 +152,40 @@ test("isolation: already-loaded resolves the owning context", async () => {
     assert.equal(count(sibB, "already-loaded"), nB, "already-loaded leaked into the other log")
 })
 
+test("isolation: canonical aliases share one owner in either load order", async () => {
+    for (const firstIsAlias of [false, true]) {
+        const target = mkdtempSync(join(tmpdir(), "sg-iso-alias-target-"))
+        const alias = join(mkdtempSync(join(tmpdir(), "sg-iso-alias-parent-")), "project")
+        linkDir(target, alias)
+
+        const firstRoot = firstIsAlias ? alias : target
+        const alternateRoot = firstIsAlias ? target : alias
+        const identityKey = identityForRoot(target)
+        const firstHooks: any = await SecurityGuard({ client: {}, directory: firstRoot, worktree: firstRoot })
+        const owner = getProjectContext(identityKey)
+        assert.ok(owner, "the first path must register the canonical identity")
+        assert.equal(owner.root, firstRoot, "the first path remains the operational root")
+
+        const before = count(owner.logFile, "already-loaded")
+        const duplicate: any = await SecurityGuard({ client: {}, directory: alternateRoot, worktree: alternateRoot })
+        assert.deepEqual(duplicate, {})
+        assert.equal(getProjectContext(identityKey), owner, "the alias must resolve to the original owner")
+        assert.equal(count(owner.logFile, "already-loaded"), before + 1, "the duplicate is logged by the owner")
+
+        await firstHooks.dispose()
+        assert.equal(getProjectContext(identityKey), undefined, "dispose releases the canonical identity")
+
+        const reloaded: any = await SecurityGuard({ client: {}, directory: alternateRoot, worktree: alternateRoot })
+        assert.ok(Object.keys(reloaded).length > 0, "an alias can register after the owner is disposed")
+        assert.equal(getProjectContext(identityKey)?.root, alternateRoot)
+        await reloaded.dispose()
+    }
+})
+
 test("isolation: disposing one root leaves the other untouched", async () => {
     await hooksB.dispose()
-    assert.equal(getProjectContext(rootB), undefined, "the disposed context must be released")
-    assert.ok(getProjectContext(rootA), "the remaining context must survive")
+    assert.equal(getProjectContext(identityForRoot(rootB)), undefined, "the disposed context must be released")
+    assert.ok(getProjectContext(identityForRoot(rootA)), "the remaining context must survive")
     const target = join(rootA, "sub", ".env")
     const nA = count(LOG, "blocked.write")
     await assert.rejects(() =>
@@ -157,7 +204,7 @@ test("isolation: the collision rule also applies with the bootstrap disabled", a
         const rootC = mkdtempSync(join(tmpdir(), "sg-iso-c-"))
         const hooksC: any = await SecurityGuard({ client: {}, directory: rootC, worktree: rootC })
         const sibC = siblingLogPath(LOG, realpathSync.native(rootC))
-        assert.equal(getProjectContext(rootC)?.logFile, sibC)
+        assert.equal(getProjectContext(identityForRoot(rootC))?.logFile, sibC)
         const outC: any = { output: CRED, metadata: {} }
         await hooksC["tool.execute.after"]({ tool: "bash", sessionID: "sess-C", callID: "c" }, outC)
         assert.ok(sessions(sibC, "redacted.tool").includes("sess-C"))
@@ -168,36 +215,78 @@ test("isolation: the collision rule also applies with the bootstrap disabled", a
     }
 })
 
-test("isolation: salt exhaustion still never shares a sink", async () => {
-    // Aliases share one canonical root, so every load collides: one base +
-    // one plain sibling + 16 deterministic salts = 18 slots. The 19th live
-    // root must fall back to a process-unique log, never a shared one.
-    // (Distinct roots would each take their own plain sibling and never reach
-    // the salts, so aliases are the only way to exhaust them.)
+test("isolation: many aliases share one canonical owner and log sink", async () => {
     const prevLog = process.env.SECURITY_GUARD_LOG
     const prevDir = process.env.SECURITY_GUARD_PROJECT_DIR
     const logDir = mkdtempSync(join(tmpdir(), "sg-exhaust-log-"))
     process.env.SECURITY_GUARD_LOG = join(logDir, "guard.log")
     process.env.SECURITY_GUARD_PROJECT_DIR = "0"
     const target = mkdtempSync(join(tmpdir(), "sg-exhaust-target-"))
-    const hooksList: any[] = []
-    const roots: string[] = []
+    let ownerHooks: any
     try {
+        ownerHooks = await SecurityGuard({ client: {}, directory: target, worktree: target })
+        const identityKey = identityForRoot(target)
+        const owner = getProjectContext(identityKey)
+        assert.ok(owner, "the canonical root must register one owner")
+        const before = count(owner.logFile, "already-loaded")
+
         for (let i = 0; i < 19; i++) {
             const alias = join(mkdtempSync(join(tmpdir(), "sg-exhaust-alias-")), `link-${i}`)
             linkDir(target, alias)
-            roots.push(alias)
-            hooksList.push(await SecurityGuard({ client: {}, directory: alias, worktree: alias }))
+            const duplicate: any = await SecurityGuard({ client: {}, directory: alias, worktree: alias })
+            assert.deepEqual(duplicate, {}, `alias ${i} must not create another hook set`)
         }
-        const logs = roots.map((r) => getProjectContext(r)?.logFile)
-        assert.ok(logs.every(Boolean), "every live root must capture a log")
-        assert.equal(new Set(logs).size, logs.length, "no two live roots may share a sink")
-        const last = logs.at(-1) ?? ""
-        // Deterministic siblings are pure 16-hex; only the process-unique
-        // fallback carries dashes (pid-seq-random).
-        assert.match(last, /guard\.[0-9a-z]+-[0-9a-z]+-[0-9a-f]+\.log$/, "the 19th root must use the unique fallback")
+        assert.equal(getProjectContext(identityKey), owner, "all aliases must share the original owner")
+        assert.equal(count(owner.logFile, "already-loaded"), before + 19, "all duplicates use the owner's sink")
     } finally {
-        for (const h of hooksList) await h.dispose?.()
+        await ownerHooks?.dispose?.()
+        if (prevLog === undefined) delete process.env.SECURITY_GUARD_LOG
+        else process.env.SECURITY_GUARD_LOG = prevLog
+        if (prevDir === undefined) delete process.env.SECURITY_GUARD_PROJECT_DIR
+        else process.env.SECURITY_GUARD_PROJECT_DIR = prevDir
+    }
+})
+
+test("isolation: log collision retries compare canonical identity keys", async () => {
+    const prevLog = process.env.SECURITY_GUARD_LOG
+    const prevDir = process.env.SECURITY_GUARD_PROJECT_DIR
+    const logDir = mkdtempSync(join(tmpdir(), "sg-identity-collision-log-"))
+    const baseLog = join(logDir, "guard.log")
+    process.env.SECURITY_GUARD_LOG = baseLog
+    process.env.SECURITY_GUARD_PROJECT_DIR = "0"
+
+    const target = mkdtempSync(join(tmpdir(), "sg-identity-collision-target-"))
+    const alias = join(mkdtempSync(join(tmpdir(), "sg-identity-collision-alias-")), "project")
+    linkDir(target, alias)
+    const identityKey = identityForRoot(target)
+    const firstSibling = siblingLogPath(baseLog, identityKey)
+    const aliasKeyOwner = createProjectContext({ root: alias, canonicalRoot: identityKey, logFile: firstSibling })
+    const baseLogOwner = createProjectContext({
+        root: mkdtempSync(join(tmpdir(), "sg-identity-collision-owner-")),
+        logFile: baseLog,
+    })
+    const baseLogOwnerKey = `${identityKey}#base-log-owner`
+    let hooks: any
+
+    try {
+        registerProjectContext(alias, aliasKeyOwner)
+        registerProjectContext(baseLogOwnerKey, baseLogOwner)
+
+        hooks = await SecurityGuard({ client: {}, directory: alias, worktree: alias })
+
+        const instance = getProjectContext(identityKey)
+        assert.ok(instance, "the alias load must register by canonical identity")
+        assert.equal(
+            instance.logFile,
+            siblingLogPath(baseLog, `${identityKey}#1`),
+            "a sibling already owned under the lexical key must be skipped",
+        )
+        assert.notEqual(instance.logFile, aliasKeyOwner.logFile, "distinct identities must not share a log sink")
+    } finally {
+        await hooks?.dispose?.()
+        releaseProjectContext(identityKey)
+        releaseProjectContext(alias)
+        releaseProjectContext(baseLogOwnerKey)
         if (prevLog === undefined) delete process.env.SECURITY_GUARD_LOG
         else process.env.SECURITY_GUARD_LOG = prevLog
         if (prevDir === undefined) delete process.env.SECURITY_GUARD_PROJECT_DIR

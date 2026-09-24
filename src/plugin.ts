@@ -128,24 +128,24 @@ type SecurityGuardInput = { client?: GuardClient; directory?: unknown; worktree?
 
 /**
  * opencode plugin factory. Registers the five guard layers (README §layers) and
- * returns the hook map. Registration is idempotent per resolved project root:
- * a second call for the same root (the plugin installed both globally and in
- * the project) logs `already-loaded` and returns `{}`, a different root
- * registers its own hooks, and `dispose` releases the root so a later load
- * (hot reload / re-init) registers again.
+ * returns the hook map. Registration is idempotent per canonical project root
+ * (resolved project path fallback): a second call for the same identity logs
+ * `already-loaded` and returns `{}`, a different root registers its own hooks,
+ * and `dispose` releases the identity so a later load (hot reload / re-init)
+ * registers again.
  */
 export const SecurityGuard = async ({ client, directory, worktree }: SecurityGuardInput) => {
     const projectRoot = resolveProjectRoot(worktree, directory)
+    const canonicalRoot = canonicalizeRoot(projectRoot)
+    const identityKey = canonicalRoot ?? projectRoot
 
     // Keep duplicate factory calls side-effect free: the owner (if any) logs
     // already-loaded to its own context before any other work runs.
-    const owner = getProjectContext(projectRoot)
+    const owner = getProjectContext(identityKey)
     if (owner) {
         owner.writeLog("info", "already-loaded")
         return {}
     }
-
-    const canonicalRoot = canonicalizeRoot(projectRoot)
 
     // Project-local state (`.security-guard/`): bootstrap on by default, disabled
     // with SECURITY_GUARD_PROJECT_DIR=0. An explicit SECURITY_GUARD_BLACKLIST
@@ -163,16 +163,16 @@ export const SecurityGuard = async ({ client, directory, worktree }: SecurityGua
               ? p.join(projectRoot, SECURITY_GUARD_DIR, "security-guard.log")
               : LOG_FILE
     const instance: ProjectContext = createProjectContext({ root: projectRoot, canonicalRoot, logFile: baseLog })
-    if (isLogPathOwnedByOther(projectRoot, instance.logFile)) {
+    if (isLogPathOwnedByOther(identityKey, instance.logFile)) {
         // Deterministic per (base, root, salt): try bounded salts first, so
         // the common multi-root case stays reproducible. If even those are
         // taken, a process-unique fallback guarantees the sink is never shared.
         const logIdentityRoot = canonicalRoot ?? projectRoot
         let sibling = siblingLogPath(baseLog, logIdentityRoot)
-        for (let n = 1; isLogPathOwnedByOther(projectRoot, sibling) && n <= MAX_LOG_COLLISION_ATTEMPTS; n++) {
+        for (let n = 1; isLogPathOwnedByOther(identityKey, sibling) && n <= MAX_LOG_COLLISION_ATTEMPTS; n++) {
             sibling = siblingLogPath(baseLog, `${logIdentityRoot}#${n}`)
         }
-        if (isLogPathOwnedByOther(projectRoot, sibling)) sibling = uniqueSiblingLogPath(baseLog)
+        if (isLogPathOwnedByOther(identityKey, sibling)) sibling = uniqueSiblingLogPath(baseLog)
         setContextLogFile(instance, sibling)
     }
 
@@ -200,7 +200,7 @@ export const SecurityGuard = async ({ client, directory, worktree }: SecurityGua
         return {}
     }
 
-    registerProjectContext(instance)
+    registerProjectContext(identityKey, instance)
 
     const explicitBlacklist = process.env.SECURITY_GUARD_BLACKLIST
     const blacklist = createBlacklist({
@@ -753,7 +753,7 @@ export const SecurityGuard = async ({ client, directory, worktree }: SecurityGua
             vault.clear()
             blacklist.clear()
             scanCache.clear()
-            releaseProjectContext(projectRoot)
+            releaseProjectContext(identityKey)
             if (counters.size || blocks) {
                 instance.writeLog("info", "summary", { blocks, counters: Object.fromEntries(counters) })
             }

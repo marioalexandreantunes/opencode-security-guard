@@ -142,24 +142,27 @@ test("context: setContextLogFile relocates best-effort", () => {
     assert.equal(ctx.logFile, moved, "a failed relocation keeps the previous path")
 })
 
-test("context: the registry tracks ownership per root", () => {
+test("context: the registry tracks ownership by explicit identity key", () => {
     const dirA = root()
     const dirB = root()
-    const ctxA = cfg.createProjectContext({ root: dirA, logFile: logIn(dirA) })
-    const ctxB = cfg.createProjectContext({ root: dirB, logFile: logIn(dirB) })
+    const identityA = `${dirA}-canonical`
+    const identityB = `${dirB}-canonical`
+    const ctxA = cfg.createProjectContext({ root: dirA, canonicalRoot: identityA, logFile: logIn(dirA) })
+    const ctxB = cfg.createProjectContext({ root: dirB, canonicalRoot: identityB, logFile: logIn(dirB) })
     try {
-        cfg.registerProjectContext(ctxA)
-        cfg.registerProjectContext(ctxB)
-        assert.equal(cfg.getProjectContext(dirA), ctxA)
-        assert.equal(cfg.getProjectContext(dirB), ctxB)
+        cfg.registerProjectContext(identityA, ctxA)
+        cfg.registerProjectContext(identityB, ctxB)
+        assert.equal(cfg.getProjectContext(identityA), ctxA)
+        assert.equal(cfg.getProjectContext(identityB), ctxB)
+        assert.equal(cfg.getProjectContext(dirA), undefined, "lookup uses the identity key, not the operational root")
         assert.equal(cfg.getProjectContext(join(tmpdir(), "sg-ctx-unknown")), undefined)
-        assert.equal(cfg.isLogPathOwnedByOther(dirB, logIn(dirA)), true)
-        assert.equal(cfg.isLogPathOwnedByOther(dirA, logIn(dirA)), false, "a root never collides with itself")
-        assert.equal(cfg.isLogPathOwnedByOther(dirB, join(dirB, "fresh.log")), false)
+        assert.equal(cfg.isLogPathOwnedByOther(identityB, logIn(dirA)), true)
+        assert.equal(cfg.isLogPathOwnedByOther(identityA, logIn(dirA)), false, "an identity never collides with itself")
+        assert.equal(cfg.isLogPathOwnedByOther(identityB, join(dirB, "fresh.log")), false)
     } finally {
-        cfg.releaseProjectContext(dirA)
-        cfg.releaseProjectContext(dirB)
+        cfg.releaseProjectContext(identityA)
+        cfg.releaseProjectContext(identityB)
     }
-    assert.equal(cfg.getProjectContext(dirA), undefined, "release must drop the context")
-    assert.equal(cfg.isLogPathOwnedByOther(dirB, logIn(dirA)), false, "release frees the path")
+    assert.equal(cfg.getProjectContext(identityA), undefined, "release must drop the identity")
+    assert.equal(cfg.isLogPathOwnedByOther(identityB, logIn(dirA)), false, "release frees the path")
 })

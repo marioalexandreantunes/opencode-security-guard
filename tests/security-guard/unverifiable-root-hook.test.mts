@@ -12,6 +12,7 @@ import { test } from "node:test"
 
 const LOG = join(mkdtempSync(join(tmpdir(), "sg-unver-log-")), "guard.log")
 process.env.SECURITY_GUARD_LOG = LOG
+process.env.SECURITY_GUARD_PROJECT_DIR = "0"
 
 const { SecurityGuard } = await import("../../src/index.ts")
 const { MARKER, getProjectContext } = await import("../../src/config.ts")
@@ -22,13 +23,17 @@ const doomed = join(parent, "missing") // never created: realpath fails
 
 const hooks: any = await SecurityGuard({ client: {}, directory: doomed, worktree: doomed })
 
-const readLog = (): string => {
+const readLog = (file = LOG): string => {
     try {
-        return readFileSync(LOG, "utf8")
+        return readFileSync(file, "utf8")
     } catch {
         return ""
     }
 }
+const eventCount = (file: string, event: string): number =>
+    readLog(file)
+        .split(/\r?\n/)
+        .filter((line) => line.includes(`"event":"${event}"`)).length
 
 let marker = ""
 {
@@ -43,6 +48,31 @@ test("unverifiable root: the instance keeps a null canonical root", () => {
     const ctx = getProjectContext(doomed)
     assert.ok(ctx, "no instance context for the doomed root")
     assert.equal(ctx.canonicalRoot, null, "an uninspectable root must not be replaced by a lexical one")
+})
+
+test("unverifiable root: lexical identity deduplicates only the same path", async () => {
+    const owner = getProjectContext(doomed)
+    assert.ok(owner, "no instance context for the doomed root")
+    const before = eventCount(owner.logFile, "already-loaded")
+
+    const duplicate: any = await SecurityGuard({ client: {}, directory: doomed, worktree: doomed })
+    assert.deepEqual(duplicate, {})
+    assert.equal(getProjectContext(doomed), owner)
+    assert.equal(eventCount(owner.logFile, "already-loaded"), before + 1)
+
+    const otherMissing = join(parent, "other-missing")
+    const otherHooks: any = await SecurityGuard({ client: {}, directory: otherMissing, worktree: otherMissing })
+    assert.ok(Object.keys(otherHooks).length > 0, "a different unresolved root must register independently")
+    const otherOwner = getProjectContext(otherMissing)
+    assert.ok(otherOwner)
+    assert.equal(otherOwner.canonicalRoot, null)
+    assert.notEqual(otherOwner, owner)
+
+    const otherBefore = eventCount(otherOwner.logFile, "already-loaded")
+    const otherDuplicate: any = await SecurityGuard({ client: {}, directory: otherMissing, worktree: otherMissing })
+    assert.deepEqual(otherDuplicate, {})
+    assert.equal(eventCount(otherOwner.logFile, "already-loaded"), otherBefore + 1)
+    await otherHooks.dispose()
 })
 
 test("unverifiable root: a marker write is blocked, not thrown", async () => {
