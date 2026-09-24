@@ -60,7 +60,7 @@ test("lifecycle: a different root registers its own hooks", async () => {
         "function",
         "the second root registers a full hook set",
     )
-    const otherLog = getProjectContext(other)?.logFile
+    const otherLog = getProjectContext(realpathSync.native(other))?.logFile
     assert.equal(
         otherLog,
         siblingLogPath(LOG, realpathSync.native(other)),

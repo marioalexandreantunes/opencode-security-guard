@@ -6,7 +6,7 @@
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/halt.test.mts
 
 import assert from "node:assert/strict"
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
@@ -117,7 +117,11 @@ test("halt: SECURITY_GUARD_PROJECT_DIR=0 ignores the halt file", async () => {
             events(log).some((e) => e.event === "loaded"),
             "the guard loads despite the halt file",
         )
-        assert.equal(getProjectContext(root)?.logFile, log, "the registered instance exposes its captured log")
+        assert.equal(
+            getProjectContext(realpathSync.native(root))?.logFile,
+            log,
+            "the registered instance exposes its captured log",
+        )
         await (hooks as { dispose: () => Promise<void> }).dispose()
     } finally {
         process.env.SECURITY_GUARD_PROJECT_DIR = "1"
@@ -156,6 +160,10 @@ test("halt: an active instance ignores a newly created sentinel", async () => {
         haltedBefore,
         "an active instance must not halt mid-session",
     )
-    assert.equal(getProjectContext(root)?.logFile, log, "the registered instance exposes its captured log")
+    assert.equal(
+        getProjectContext(realpathSync.native(root))?.logFile,
+        log,
+        "the registered instance exposes its captured log",
+    )
     await (active as { dispose: () => Promise<void> }).dispose()
 })

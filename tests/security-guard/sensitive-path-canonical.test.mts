@@ -6,7 +6,7 @@
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/sensitive-path-canonical.test.mts
 
 import assert from "node:assert/strict"
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
@@ -41,7 +41,7 @@ const hooks: any = await SecurityGuard({ client: {}, directory: ROOT, worktree: 
 // recognise that sibling as ITS active log, not the first root's.
 const ROOT_B = mkdtempSync(join(tmpdir(), "sg-sens-root-b-"))
 const hooksB: any = await SecurityGuard({ client: {}, directory: ROOT_B, worktree: ROOT_B })
-const logB = getProjectContext(ROOT_B)?.logFile
+const logB = getProjectContext(realpathSync.native(ROOT_B))?.logFile
 
 const events = (): any[] =>
     readFileSync(LOG, "utf8")

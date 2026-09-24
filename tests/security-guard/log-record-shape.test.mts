@@ -87,7 +87,7 @@ test("record shape: blocked.read carries exactly the alert fields", async () => 
             ),
         /read blocked/,
     )
-    const projectLog = getProjectContext(project)?.logFile
+    const projectLog = getProjectContext(realpathSync.native(project))?.logFile
     assert.ok(projectLog, "no captured log for the project root")
     const blocked = recordsFrom(projectLog)
         .filter((e) => e.event === "blocked.read")
@@ -118,7 +118,7 @@ test("record shape: blocked.write.fullrewrite carries a stable reason", async ()
             () => projectHooks["tool.execute.before"]({ tool: "write" }, { args: { filePath: file, content: "x" } }),
             /cannot reproduce/,
         )
-        const projectLog = getProjectContext(rewriteProject)?.logFile
+        const projectLog = getProjectContext(realpathSync.native(rewriteProject))?.logFile
         assert.ok(projectLog, "no captured log for the rewrite project")
         const blocked = recordsFrom(projectLog)
             .filter((e) => e.event === "blocked.write.fullrewrite")

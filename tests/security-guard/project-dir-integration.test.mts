@@ -2,7 +2,7 @@
 // Run: node --import ./tests/setup-env.mts --test --experimental-strip-types tests/security-guard/project-dir-integration.test.mts
 
 import assert from "node:assert/strict"
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
@@ -36,7 +36,7 @@ writeFileSync(BLACKLIST, `# team terms\n${TERM}\n${SECOND_TERM}\nre:${PATTERN}\n
 
 const mk = (term: string): string => `<${MARKER}:blacklist:${fp(term)}>`
 const instanceLog = (): string => {
-    const file = cfg.getProjectContext(ROOT)?.logFile
+    const file = cfg.getProjectContext(realpathSync.native(ROOT))?.logFile
     assert.ok(file, "no instance context for the project root")
     return file
 }
