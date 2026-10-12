@@ -10,86 +10,76 @@ messages.3.content.0:
 Invalid `signature` in `thinking` block
 ```
 
-O erro desaparece quando desativamos o plugin, o que indica uma incompatibilidade entre o processamento das mensagens pelo Security Guard e a validação dos blocos de raciocínio do Claude.
+O erro desaparece quando desativamos o plugin. Ocorre mesmo sem segredos reais no histórico.
 
-### 2. Causa provável
+### 2. Causa (confirmada no código)
 
-O Security Guard interceta e sanitiza mensagens, incluindo o histórico, para impedir que segredos sejam enviados ao modelo.
+O hook `experimental.chat.messages.transform` (`src/plugin.ts`) chama `redactSkipping` sobre todas as chaves de cada `part`, exceto as de estrutura (`PART_SKIP`: `id`, `type`, `time`, `tokens`, etc.). Isto inclui o `metadata` das partes `reasoning`, onde o Claude guarda a `signature`.
 
-O problema surge no hook `experimental.chat.messages.transform`, que pode modificar conteúdo associado a blocos de thinking.
+A regra `entropy-blob` (`src/rules.ts`) deteta strings de 40 a 512 caracteres `[A-Za-z0-9+=_-]` com maiúsculas, minúsculas, dígitos e entropia suficiente. As assinaturas do Claude cumprem estes critérios.
 
-O Claude utiliza assinaturas criptográficas para verificar a integridade desses blocos. Quando o conteúdo assinado é alterado, a assinatura deixa de corresponder ao original e a API rejeita o pedido.
+Teste isolado realizado:
+
+```
+thinking signature: <SECURITY_GUARD_REDACTED:entropy-blob:767ffffc3c4abbf0>
+```
+
+Ou seja, a assinatura é reescrita mesmo quando não existe nenhum segredo. A API valida a assinatura e rejeita o pedido.
+
+Não existe hoje nenhuma verificação "este bloco tem segredo?" antes da redação.
 
 ### 3. O comportamento pretendido
 
-O objetivo do Security Guard não é bloquear o agente, mas protegê-lo de forma transparente, mantendo a execução contínua.
-
-Queremos garantir que:
+O Security Guard não deve bloquear o agente, mas proteger o conteúdo de forma transparente.
 
 - Os segredos nunca são expostos ao modelo.
 - O agente continua a trabalhar normalmente.
 - As mensagens são sanitizadas sem provocar erros de assinatura.
-- O mecanismo de proteção funciona com diferentes providers e modelos.
-- O sistema mantém a possibilidade de restaurar segredos localmente através do vault.
+- O mecanismo funciona com diferentes providers e modelos.
+- Os segredos continuam recuperáveis localmente através do vault.
 
-### 4. Solução proposta
+### 4. Solução proposta (ainda não implementada)
 
-A solução deve distinguir entre conteúdo modificável e conteúdo criptograficamente assinado.
+Distinguir conteúdo modificável de conteúdo assinado.
 
-Para mensagens normais:
+Para mensagens normais: manter a sanitização e a substituição de segredos por placeholders.
 
-Continuar a aplicar a sanitização e a substituição de segredos por placeholders, como já acontece.
+Para blocos `reasoning` com assinatura:
 
-Para blocos de thinking assinados:
+1. Não redigir a assinatura (`signature`, `redactedData`), em nenhuma profundidade. Qualquer alteração invalida a assinatura, mesmo um falso positivo.
+2. Se o texto do thinking não tiver segredos, preservar o bloco inteiro.
+3. Se o texto do thinking tiver segredos, não é possível redigi-lo sem invalidar a assinatura. Omitir o bloco do histórico.
+4. Confirmar que a estrutura final do histórico continua válida para o provider. Omitir um bloco de thinking pode exigir ajustes, dependendo das regras da API.
 
-Não é possível modificar o conteúdo e manter a assinatura original válida. Também não é possível gerar uma nova assinatura válida sem a chave privada do provider.
+Alterações previstas (não implementadas, a pedido: só documentação):
 
-A abordagem adequada será:
-
-1. Detetar blocos de thinking assinados antes da sanitização.
-2. Verificar se contêm segredos, sem modificar o conteúdo original.
-3. Quando não existem segredos, preservar integralmente o bloco e a assinatura.
-4. Quando existem segredos, substituir o bloco assinado por uma representação segura e não assinada, apenas se o protocolo do provider permitir essa transformação.
-5. Quando essa substituição não é permitida, omitir o bloco de thinking do histórico e preservar as mensagens normais e os resultados relevantes que possam ser sanitizados.
-6. Garantir que a estrutura final do histórico continua válida para o provider.
-
-A eliminação de um bloco assinado também pode exigir ajustes ao histórico, dependendo das regras da API. Por isso, esta transformação tem de ser validada por provider.
+- `src/redact.ts`: opção para ignorar chaves opacas.
+- `src/plugin.ts`: tratamento de `reasoning` no `messages.transform`.
+- `tests/security-guard/chat-hooks.test.mts`: testes para assinatura preservada e bloco com segredo omitido.
 
 ### 5. Resultado esperado
 
-Segurança sem interromper o agente
+Mensagem / Histórico → Security Guard → Deteção e classificação
 
-Mensagem / Histórico
+- Conteúdo normal → redação de segredos
+- Thinking com assinatura, sem segredos → preservar assinatura
+- Thinking com assinatura, com segredos → omitir bloco
 
-Security Guard
+→ Pedido válido ao provider → agente continua a executar
 
-Deteção e classificação do conteúdo
+### 6. Critérios de aceitação (estado atual)
 
-Conteúdo normal
+- [ ] Claude Haiku 5.5 com thinking e sem segredos: **falha hoje** (causa confirmada, correção não implementada).
+- [ ] Claude Haiku 5.5 com segredos no histórico de mensagens normais: a redação existe; não validada contra a API real.
+- [ ] Claude Haiku 5.5 com segredos dentro de blocos de thinking assinados: a omissão ainda não está implementada.
+- [ ] Execução de várias ferramentas e ciclos consecutivos, sem erros de assinatura: não validado.
+- [ ] Nenhuma exposição de segredos ao modelo: não validado de ponta a ponta.
+- [ ] Compatibilidade com outros modelos que utilizem assinaturas: não validado.
 
-Redação de segredos
+### Conclusão
 
-Thinking assinado
+A solução não é recalcular assinaturas nem bloquear o pedido. Consiste em não tocar nas assinaturas, e em omitir apenas os blocos de thinking cujo texto contém segredos.
 
-Preservar ou omitir com segurança
-
-Pedido válido ao provider
-
-Agente continua a executar
-
-### 6. Critério de aceitação
-
-O plugin deve passar nos seguintes testes:
-
-- Claude Haiku 5.5 com thinking e sem segredos.
-- Claude Haiku 5.5 com segredos no histórico de mensagens normais.
-- Claude Haiku 5.5 com segredos dentro de blocos de thinking assinados.
-- Execução de várias ferramentas e ciclos consecutivos, sem erros de assinatura.
-- Nenhuma exposição de segredos ao modelo.
-- Compatibilidade com outros modelos que utilizem assinaturas ou metadados de integridade.
-
-Conclusão: a solução não é recalcular assinaturas nem bloquear automaticamente o pedido. É aplicar uma transformação consciente do protocolo, preservando blocos assinados seguros e removendo ou substituindo os inseguros de forma que o provider aceite o histórico.
-
-Existe, contudo, um limite importante: se o provider exigir determinado bloco assinado para continuar a conversa e não permitir a sua omissão, não há garantia de continuidade automática sem reconstruir uma sessão válida. Nesse cenário, uma recuperação controlada numa nova sessão, com contexto sanitizado, é preferível a enviar segredos ou assinaturas inválidas.
+Limite importante: se o provider exigir um bloco assinado específico para continuar a conversa e não permitir a sua omissão, não há continuidade automática sem reconstruir uma sessão válida. Nesse caso, uma recuperação controlada numa nova sessão, com contexto sanitizado, é preferível a enviar segredos ou assinaturas inválidas.
 
 Princípio de arquitetura: Sanitize what is mutable, preserve what is signed, reconstruct what cannot safely be preserved.
