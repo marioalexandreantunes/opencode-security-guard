@@ -104,6 +104,7 @@ secrets.yml
 opencode.json.local
 **/auth.json
 .kilo/*
+.dsh/*
 .security-guard/*
 .serena/*
 openspec/*
