@@ -12,7 +12,7 @@ Invalid `signature` in `thinking` block
 
 The error disappears when we disable the plugin. It happens even without real secrets in the history.
 
-### 2. Cause (confirmed in the code)
+### 2. Probable cause (proven at the scanner level; reproduction pending)
 
 The `experimental.chat.messages.transform` hook (`src/plugin.ts`) calls `redactSkipping` on every key of each `part`, except the structural ones (`PART_SKIP`: `id`, `type`, `time`, `tokens`, etc.). This includes the `metadata` of `reasoning` parts, where Claude stores the `signature`.
 
@@ -25,6 +25,10 @@ thinking signature: <SECURITY_GUARD_REDACTED:entropy-blob:767ffffc3c4abbf0>
 ```
 
 So the signature is rewritten even when there is no secret. The API validates the signature and rejects the request.
+
+Gap: this test proves the scanner rewrites the value, not that the part reaches `messages.transform` in this shape, nor that OpenCode sends it as is. This is the subject of tasks 0.1 (real shape of the part) and 0.2 (reproduction test that fails today).
+
+Field names to confirm: Anthropic uses `data` in the `redacted_thinking` block in the native API; `redactedData` comes from the AI SDK provider and was not verified in this project.
 
 There is currently no "does this block contain a secret?" check before redaction.
 
@@ -46,7 +50,7 @@ For normal messages: keep sanitization and replacing secrets with placeholders.
 
 For signed `reasoning` blocks:
 
-1. Do not redact the signature (`signature`, `redactedData`) at any depth. Any change invalidates it, even a false positive.
+1. Do not redact the signature nor the redacted thinking field (names to confirm in task 0.1) at any depth. Any change invalidates it, even a false positive.
 2. If the thinking text has no secrets, preserve the whole block.
 3. If the thinking text has secrets, it cannot be redacted without invalidating the signature. Omit the block from the history.
 4. Confirm the final history structure remains valid for the provider. Omitting a thinking block may require adjustments depending on API rules.
@@ -69,7 +73,7 @@ Message / History → Security Guard → Detection and classification
 
 ### 6. Acceptance criteria (current status)
 
-- [ ] Claude Haiku 5.5 with thinking and no secrets: **fails today** (cause confirmed, fix not implemented).
+- [ ] Claude Haiku 5.5 with thinking and no secrets: **fails today** (probable cause, reproduction pending, fix not implemented).
 - [ ] Claude Haiku 5.5 with secrets in normal message history: redaction exists; not validated against the real API.
 - [ ] Claude Haiku 5.5 with secrets inside signed thinking blocks: omission not implemented yet.
 - [ ] Several tools and consecutive cycles without signature errors: not validated.

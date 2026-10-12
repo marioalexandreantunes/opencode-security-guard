@@ -12,7 +12,7 @@ Invalid `signature` in `thinking` block
 
 O erro desaparece quando desativamos o plugin. Ocorre mesmo sem segredos reais no histórico.
 
-### 2. Causa (confirmada no código)
+### 2. Causa provável (provada ao nível do scanner; reprodução pendente)
 
 O hook `experimental.chat.messages.transform` (`src/plugin.ts`) chama `redactSkipping` sobre todas as chaves de cada `part`, exceto as de estrutura (`PART_SKIP`: `id`, `type`, `time`, `tokens`, etc.). Isto inclui o `metadata` das partes `reasoning`, onde o Claude guarda a `signature`.
 
@@ -25,6 +25,10 @@ thinking signature: <SECURITY_GUARD_REDACTED:entropy-blob:767ffffc3c4abbf0>
 ```
 
 Ou seja, a assinatura é reescrita mesmo quando não existe nenhum segredo. A API valida a assinatura e rejeita o pedido.
+
+Lacuna: este teste prova a reescrita pelo scanner, não que a parte chega assim ao `messages.transform` nem que o OpenCode a envia tal como é. Isto é o objeto das tarefas 0.1 (forma real da parte) e 0.2 (teste de reprodução que falha hoje).
+
+Nomes de campos por confirmar: a Anthropic usa `data` no bloco `redacted_thinking` na API nativa; `redactedData` vem do provider AI SDK e não foi verificado neste projeto.
 
 Não existe hoje nenhuma verificação "este bloco tem segredo?" antes da redação.
 
@@ -46,7 +50,7 @@ Para mensagens normais: manter a sanitização e a substituição de segredos po
 
 Para blocos `reasoning` com assinatura:
 
-1. Não redigir a assinatura (`signature`, `redactedData`), em nenhuma profundidade. Qualquer alteração invalida a assinatura, mesmo um falso positivo.
+1. Não redigir a assinatura nem o campo de thinking redigido (nomes a confirmar na tarefa 0.1), em nenhuma profundidade. Qualquer alteração invalida a assinatura, mesmo um falso positivo.
 2. Se o texto do thinking não tiver segredos, preservar o bloco inteiro.
 3. Se o texto do thinking tiver segredos, não é possível redigi-lo sem invalidar a assinatura. Omitir o bloco do histórico.
 4. Confirmar que a estrutura final do histórico continua válida para o provider. Omitir um bloco de thinking pode exigir ajustes, dependendo das regras da API.
@@ -69,7 +73,7 @@ Mensagem / Histórico → Security Guard → Deteção e classificação
 
 ### 6. Critérios de aceitação (estado atual)
 
-- [ ] Claude Haiku 5.5 com thinking e sem segredos: **falha hoje** (causa confirmada, correção não implementada).
+- [ ] Claude Haiku 5.5 com thinking e sem segredos: **falha hoje** (causa provável, reprodução pendente, correção não implementada).
 - [ ] Claude Haiku 5.5 com segredos no histórico de mensagens normais: a redação existe; não validada contra a API real.
 - [ ] Claude Haiku 5.5 com segredos dentro de blocos de thinking assinados: a omissão ainda não está implementada.
 - [ ] Execução de várias ferramentas e ciclos consecutivos, sem erros de assinatura: não validado.
