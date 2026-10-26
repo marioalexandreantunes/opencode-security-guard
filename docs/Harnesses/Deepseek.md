@@ -340,3 +340,7 @@ when restoration or required final-boundary protection remains unavailable.
 
 Upstream links are discovery references. Check the matching Harness v2 release
 or installed source and record exact versions before relying on an API contract.
+
+---
+
+**AI disclosure:** This document was produced by artificial intelligence.

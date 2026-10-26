@@ -284,3 +284,7 @@ outcomes, exceptions, and uncovered paths; never infer untested results.
 
 Upstream links are discovery references. Check the matching release or installed
 source before relying on an API contract.
+
+---
+
+**AI disclosure:** This document was produced by artificial intelligence.

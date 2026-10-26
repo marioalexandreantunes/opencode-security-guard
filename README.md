@@ -354,6 +354,8 @@ Notes:
 
 The plugin pins its `@opencode-ai/plugin` peer dependency to the exact SDK version it is built and validated against. The contract depends on `experimental.*` hook types, so no wider compatibility range is advertised.
 
+**Known runtime compatibility issue:** the plugin worked with OpenCode `1.19.4`, but stopped working after upgrading to `v2.1.4`. Compatibility with `v2.1.4` has not been validated. The SDK pin below describes the build-time plugin contract; it does not guarantee compatibility with every OpenCode runtime version.
+
 | Dependency | Pinned version | Validation method |
 | --- | --- | --- |
 | `@opencode-ai/plugin` | `1.18.31` (peerDependency and devDependency) | `npm run typecheck` + `npm test` on the pinned version |

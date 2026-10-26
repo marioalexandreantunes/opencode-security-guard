@@ -318,3 +318,7 @@ parity, and a working installation is not proof of protection.
 These links describe evolving contracts. Re-check the installed release before
 implementation; document the version and evidence instead of assuming upstream
 main matches the user's Codex installation.
+
+---
+
+**AI disclosure:** This document was produced by artificial intelligence.
